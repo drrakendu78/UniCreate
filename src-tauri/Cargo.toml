@@ -1,0 +1,26 @@
+[package]
+name = "unicreate"
+version = "1.0.0"
+description = "UniCreate - WinGet Manifest Creator GUI"
+authors = ["Drrakendu78"]
+edition = "2021"
+
+[lib]
+name = "unicreate_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+sha2 = "0.10"
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io"] }
+futures-util = "0.3"
+dirs = "6.0"
