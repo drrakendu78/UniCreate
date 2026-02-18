@@ -1,4 +1,10 @@
-<h1 align="center">UniCreate</h1>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="src-tauri/icons/logo light.png" />
+    <source media="(prefers-color-scheme: light)" srcset="src-tauri/icons/logo dark.png" />
+    <img src="src-tauri/icons/logo dark.png" alt="UniCreate" width="280" />
+  </picture>
+</p>
 
 <p align="center">
   <strong>The modern WinGet manifest creator</strong>
