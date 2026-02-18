@@ -40,7 +40,7 @@ export function StepperHeader() {
                   "flex h-[18px] w-[18px] items-center justify-center rounded-full text-[10px] font-bold transition-all",
                   isActive && "bg-primary text-white",
                   isCompleted && "bg-emerald-500/15 text-emerald-500",
-                  !isActive && !isCompleted && "bg-muted text-muted-foreground/40"
+                  !isActive && !isCompleted && "bg-muted text-muted-foreground"
                 )}
               >
                 {isCompleted ? <Check className="h-2.5 w-2.5" strokeWidth={3} /> : step.num}

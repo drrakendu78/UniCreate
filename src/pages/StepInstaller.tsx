@@ -145,7 +145,7 @@ export function StepInstaller() {
   return (
     <div className="space-y-7">
       <div>
-        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground/60 mb-2">
+        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
           <span>Step 1 of 4</span>
           {isUpdate && (
             <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
@@ -176,23 +176,23 @@ export function StepInstaller() {
         ) : (
           <>
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-foreground/80">Download URL</label>
+              <label className="text-[13px] font-medium text-foreground">Download URL</label>
               <div className="relative group">
-                <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary/60 transition-colors" />
+                <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary/60 transition-colors" />
                 <input
                   type="url"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !localHash && handleAnalyze()}
                   placeholder="https://github.com/user/repo/releases/download/v1.0/setup.exe"
-                  className="h-10 w-full rounded-lg border border-border bg-background/50 pl-10 pr-4 text-[13px] placeholder:text-muted-foreground/30 focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all"
+                  className="h-10 w-full rounded-lg border border-border bg-background/50 pl-10 pr-4 text-[13px] placeholder:text-muted-foreground/40 focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-[12px] font-medium text-foreground/60">
+                <label className="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
                   <Cpu className="h-3 w-3" />
                   Architecture
                 </label>
@@ -207,7 +207,7 @@ export function StepInstaller() {
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-[12px] font-medium text-foreground/60">
+                <label className="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
                   <Box className="h-3 w-3" />
                   Installer Type
                 </label>
@@ -231,13 +231,13 @@ export function StepInstaller() {
                     Local file: {localHash.fileName}
                   </span>
                 </div>
-                <p className="font-mono text-[11px] text-muted-foreground/50 select-all">{localHash.sha256}</p>
+                <p className="font-mono text-[11px] text-muted-foreground select-all">{localHash.sha256}</p>
                 {localHash.signatureSha256 && (
-                  <p className="text-[11px] text-muted-foreground/40">
+                  <p className="text-[11px] text-muted-foreground">
                     SignatureSha256: <span className="font-mono select-all">{localHash.signatureSha256}</span>
                   </p>
                 )}
-                <p className="text-[11px] text-muted-foreground/40">Enter the download URL above, then click "Add"</p>
+                <p className="text-[11px] text-muted-foreground">Enter the download URL above, then click "Add"</p>
                 <button
                   onClick={handleAddFromLocal}
                   disabled={!url.trim()}
@@ -278,7 +278,7 @@ export function StepInstaller() {
               </button>
             )}
 
-            <p className="text-center text-[11px] text-muted-foreground/30">
+            <p className="text-center text-[11px] text-muted-foreground">
               or drag & drop a local file to compute hash
             </p>
 
@@ -311,11 +311,11 @@ export function StepInstaller() {
                   )}
                 </div>
                 <p className="truncate text-[12px] text-muted-foreground/70">{installer.installerUrl}</p>
-                <p className="font-mono text-[11px] text-muted-foreground/40 select-all">{installer.installerSha256}</p>
+                <p className="font-mono text-[11px] text-muted-foreground select-all">{installer.installerSha256}</p>
               </div>
               <button
                 onClick={() => removeInstaller(index)}
-                className="mt-1 rounded-md p-1.5 text-muted-foreground/30 opacity-0 transition-all group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                className="mt-1 rounded-md p-1.5 text-muted-foreground opacity-0 transition-all group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>

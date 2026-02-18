@@ -76,6 +76,16 @@ async fn check_package_exists(package_id: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
+async fn start_device_flow() -> Result<github::DeviceFlowStart, String> {
+    github::start_device_flow().await
+}
+
+#[tauri::command]
+async fn poll_device_flow(device_code: String) -> Result<String, String> {
+    github::poll_device_flow(&device_code).await
+}
+
+#[tauri::command]
 async fn authenticate_github(token: String) -> Result<github::GitHubUser, String> {
     github::authenticate_github(&token).await
 }
@@ -133,6 +143,8 @@ pub fn run() {
             fetch_existing_manifest,
             fetch_repo_metadata,
             check_package_exists,
+            start_device_flow,
+            poll_device_flow,
             authenticate_github,
             submit_manifest,
             store_github_token,

@@ -97,6 +97,13 @@ export interface GitHubUser {
   avatarUrl: string;
 }
 
+export interface DeviceFlowStart {
+  deviceCode: string;
+  userCode: string;
+  verificationUri: string;
+  interval: number;
+}
+
 export interface RepoMetadata {
   owner: string;
   repoName: string;

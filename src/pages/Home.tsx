@@ -80,14 +80,14 @@ export function Home() {
 
         <div className="space-y-4 rounded-xl border border-border bg-card/50 p-5">
           <div className="space-y-1.5">
-            <label className="text-[13px] font-medium text-foreground/80">Package Identifier or URL</label>
+            <label className="text-[13px] font-medium text-foreground">Package Identifier or URL</label>
             <div className="relative group">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary/60 transition-colors" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary/60 transition-colors" />
               <input type="text" value={packageId}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 placeholder="Publisher.PackageName or winget-pkgs URL"
-                className="h-10 w-full rounded-lg border border-border bg-background/50 pl-10 pr-4 text-[13px] placeholder:text-muted-foreground/30 focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all" />
+                className="h-10 w-full rounded-lg border border-border bg-background/50 pl-10 pr-4 text-[13px] placeholder:text-muted-foreground/40 focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all" />
             </div>
           </div>
 
@@ -120,12 +120,12 @@ export function Home() {
                   { label: "Locale", value: found.packageLocale },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center gap-2 rounded-md bg-background/30 px-3 py-1.5">
-                    <span className="text-[11px] text-muted-foreground/50">{item.label}</span>
-                    <span className="ml-auto text-[12px] font-medium text-foreground/80 truncate">{item.value}</span>
+                    <span className="text-[11px] text-muted-foreground">{item.label}</span>
+                    <span className="ml-auto text-[12px] font-medium text-foreground truncate">{item.value}</span>
                   </div>
                 ))}
               </div>
-              <p className="text-[11px] text-muted-foreground/50">All metadata will be loaded. You just need to add the new installer URL.</p>
+              <p className="text-[11px] text-muted-foreground">All metadata will be loaded. You just need to add the new installer URL.</p>
               <button onClick={handleUpdate}
                 className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 text-[13px] font-medium text-white transition-all hover:bg-emerald-500 active:scale-[0.99]">
                 <RefreshCw className="h-3.5 w-3.5" />Update this package
@@ -159,7 +159,7 @@ export function Home() {
           </div>
           <div className="text-center">
             <p className="text-[13px] font-semibold">New Package</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground/50">Create from scratch</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Create from scratch</p>
           </div>
         </button>
 
@@ -170,7 +170,7 @@ export function Home() {
           </div>
           <div className="text-center">
             <p className="text-[13px] font-semibold">Update Package</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground/50">New version of existing</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">New version of existing</p>
           </div>
         </button>
       </div>
@@ -178,10 +178,10 @@ export function Home() {
       {submissions.length > 0 && (
         <div className="mt-10 w-full max-w-md">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/40">
+            <h3 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
               <Clock className="h-3 w-3" />Recent Submissions
             </h3>
-            <button onClick={clearHistory} className="text-[10px] text-muted-foreground/30 hover:text-destructive transition-colors">
+            <button onClick={clearHistory} className="text-[10px] text-muted-foreground hover:text-destructive transition-colors">
               <Trash2 className="h-3 w-3" />
             </button>
           </div>
@@ -190,10 +190,10 @@ export function Home() {
               <a key={idx} href={sub.prUrl} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-3 rounded-lg border border-border/50 bg-card/30 px-3.5 py-2.5 transition-colors hover:bg-card/60 group">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-medium text-foreground/80 truncate">{sub.packageId} <span className="text-muted-foreground/50">v{sub.version}</span></p>
-                  <p className="text-[10px] text-muted-foreground/40">{new Date(sub.date).toLocaleDateString()}</p>
+                  <p className="text-[12px] font-medium text-foreground truncate">{sub.packageId} <span className="text-muted-foreground">v{sub.version}</span></p>
+                  <p className="text-[10px] text-muted-foreground">{new Date(sub.date).toLocaleDateString()}</p>
                 </div>
-                <ExternalLink className="h-3 w-3 text-muted-foreground/30 group-hover:text-primary transition-colors shrink-0" />
+                <ExternalLink className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
               </a>
             ))}
           </div>

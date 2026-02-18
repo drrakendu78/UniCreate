@@ -33,17 +33,17 @@ function Field({ label, required, value, onChange, placeholder, multiline, hint,
       </label>
       {multiline ? (
         <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3}
-          className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-[13px] resize-none placeholder:text-muted-foreground/30 focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all" />
+          className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-[13px] resize-none placeholder:text-muted-foreground/40 focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all" />
       ) : (
         <div className="relative">
           <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-            className={cn("h-9 w-full rounded-lg border bg-background/50 px-3 text-[13px] placeholder:text-muted-foreground/30 focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all",
+            className={cn("h-9 w-full rounded-lg border bg-background/50 px-3 text-[13px] placeholder:text-muted-foreground/40 focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all",
               error ? "border-destructive/50" : "border-border", suffix ? "pr-8" : "")} />
           {suffix && <div className="absolute right-2.5 top-1/2 -translate-y-1/2">{suffix}</div>}
         </div>
       )}
       {error && <p className="text-[11px] text-destructive/70">{error}</p>}
-      {hint && !error && <p className="text-[11px] text-muted-foreground/40">{hint}</p>}
+      {hint && !error && <p className="text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -65,7 +65,7 @@ function TagsInput({ value, onChange }: { value: string[]; onChange: (tags: stri
         </div>
       )}
       <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
-        placeholder="Type and press Enter..." className="h-8 w-full rounded-lg border border-border bg-background/50 px-3 text-[12px] placeholder:text-muted-foreground/30 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all" />
+        placeholder="Type and press Enter..." className="h-8 w-full rounded-lg border border-border bg-background/50 px-3 text-[12px] placeholder:text-muted-foreground/40 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all" />
     </div>
   );
 }
@@ -117,7 +117,7 @@ export function StepMetadata() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground/60 mb-2"><span>Step 2 of 4</span></div>
+        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2"><span>Step 2 of 4</span></div>
         <h2 className="text-xl font-semibold tracking-tight">Package Metadata</h2>
         <p className="mt-1.5 text-[13px] text-muted-foreground leading-relaxed">
           Provide information about your package. Fields marked with <span className="text-primary">*</span> are required by WinGet.
@@ -125,7 +125,7 @@ export function StepMetadata() {
       </div>
 
       <section className="space-y-3 rounded-xl border border-border bg-card/50 p-5">
-        <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">Identity</h3>
+        <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Identity</h3>
         <div className="grid grid-cols-3 gap-3">
           <Field label="Package Identifier" required value={manifest.packageIdentifier} onChange={setPackageIdentifier}
             placeholder="Publisher.PackageName" hint={idStatus === "exists" ? "Exists in winget-pkgs" : idStatus === "available" ? "New package" : "Format: Publisher.Package"}
@@ -142,7 +142,7 @@ export function StepMetadata() {
       </section>
 
       <section className="space-y-3 rounded-xl border border-border bg-card/50 p-5">
-        <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">Required</h3>
+        <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Required</h3>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Publisher" required value={locale.publisher} onChange={(v) => setLocale({ publisher: v })} placeholder="Company or author name" />
           <Field label="Package Name" required value={locale.packageName} onChange={(v) => setLocale({ packageName: v })} placeholder="My Application" />
@@ -155,8 +155,8 @@ export function StepMetadata() {
 
       <section className="rounded-xl border border-border bg-card/50 overflow-hidden">
         <button onClick={() => setShowOptional(!showOptional)} className="flex w-full items-center justify-between px-5 py-3.5 text-left transition-colors hover:bg-accent/30">
-          <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">Optional Fields</h3>
-          <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground/40 transition-transform duration-200", showOptional && "rotate-180")} />
+          <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Optional Fields</h3>
+          <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", showOptional && "rotate-180")} />
         </button>
         {showOptional && (
           <div className="space-y-3 border-t border-border px-5 py-4 animate-fade-in">
@@ -179,11 +179,11 @@ export function StepMetadata() {
       {/* Additional Locales */}
       <section className="rounded-xl border border-border bg-card/50 overflow-hidden">
         <button onClick={() => setShowLocales(!showLocales)} className="flex w-full items-center justify-between px-5 py-3.5 text-left transition-colors hover:bg-accent/30">
-          <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">
+          <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
             <Languages className="h-3 w-3" />Additional Locales
             {manifest.additionalLocales?.length ? <span className="rounded-full bg-primary/10 px-1.5 py-px text-[10px] text-primary">{manifest.additionalLocales.length}</span> : null}
           </h3>
-          <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground/40 transition-transform duration-200", showLocales && "rotate-180")} />
+          <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", showLocales && "rotate-180")} />
         </button>
         {showLocales && (
           <div className="border-t border-border px-5 py-4 space-y-4 animate-fade-in">
@@ -197,7 +197,7 @@ export function StepMetadata() {
                       className="h-8 rounded-lg border border-border bg-background/50 px-2 text-[12px] focus:border-primary/50 focus:outline-none">
                       {availableLocales.map((l) => (<option key={l.value} value={l.value}>{l.label}</option>))}
                     </select>
-                    <button onClick={() => removeAdditionalLocale(idx)} className="rounded-md p-1.5 text-muted-foreground/40 hover:bg-destructive/10 hover:text-destructive transition-colors">
+                    <button onClick={() => removeAdditionalLocale(idx)} className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
@@ -212,7 +212,7 @@ export function StepMetadata() {
               );
             })}
             <button onClick={handleAddLocale}
-              className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-[12px] font-medium text-muted-foreground/50 transition-colors hover:border-primary/30 hover:text-primary/70">
+              className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-[12px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary/70">
               <Plus className="h-3 w-3" />Add locale
             </button>
           </div>

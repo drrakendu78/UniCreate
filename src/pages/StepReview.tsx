@@ -58,7 +58,7 @@ export function StepReview() {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3">
         <Loader2 className="h-5 w-5 animate-spin text-primary/60" />
-        <span className="text-[13px] text-muted-foreground/60">Generating manifests...</span>
+        <span className="text-[13px] text-muted-foreground">Generating manifests...</span>
       </div>
     );
   }
@@ -80,7 +80,7 @@ export function StepReview() {
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground/60 mb-2">
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
             <span>Step 3 of 4</span>
           </div>
           <h2 className="text-xl font-semibold tracking-tight">Review Manifests</h2>
@@ -115,7 +115,7 @@ export function StepReview() {
                     "flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-medium transition-colors border-b-2 -mb-px whitespace-nowrap shrink-0",
                     index === activeTab
                       ? "border-primary text-foreground bg-background/50"
-                      : "border-transparent text-muted-foreground/50 hover:text-muted-foreground"
+                      : "border-transparent text-muted-foreground hover:text-muted-foreground"
                   )}
                 >
                   <FileCode className="h-3 w-3 shrink-0" />
@@ -126,7 +126,7 @@ export function StepReview() {
           </div>
           <button
             onClick={handleCopy}
-            className="mx-2 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground shrink-0"
+            className="mx-2 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground shrink-0"
           >
             {copied ? (
               <>
@@ -145,7 +145,7 @@ export function StepReview() {
         {/* Code */}
         <div className="bg-[hsl(228,14%,7%)] p-5 overflow-x-auto">
           <pre className="text-[12px] leading-[1.7] font-mono">
-            <code className="text-foreground/80">{generatedYaml[activeTab]?.content}</code>
+            <code className="text-foreground">{generatedYaml[activeTab]?.content}</code>
           </pre>
         </div>
       </div>

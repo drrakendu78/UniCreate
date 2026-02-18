@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::yaml_generator::YamlFile;
 
+// GitHub OAuth App Client ID — public, safe to hardcode
+const GITHUB_CLIENT_ID: &str = "Ov23liEtB73yhdcAHuOR";
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GitHubUser {
     pub login: String,
@@ -465,6 +468,102 @@ fn build_headers(token: &str) -> HeaderMap {
     headers.insert(USER_AGENT, HeaderValue::from_static("UniCreate/1.0"));
     headers
 }
+
+// ── Device Flow ───────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceFlowStart {
+    pub device_code: String,
+    pub user_code: String,
+    pub verification_uri: String,
+    pub interval: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct DeviceCodeResponse {
+    device_code: String,
+    user_code: String,
+    verification_uri: String,
+    interval: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DeviceTokenResponse {
+    access_token: Option<String>,
+    error: Option<String>,
+}
+
+/// Step 1: Start device flow — returns a user code to show + a device code to poll with
+pub async fn start_device_flow() -> Result<DeviceFlowStart, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .post("https://github.com/login/device/code")
+        .header(ACCEPT, "application/json")
+        .header(USER_AGENT, "UniCreate/1.0")
+        .form(&[
+            ("client_id", GITHUB_CLIENT_ID),
+            ("scope", "public_repo"),
+        ])
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("GitHub returned {} : {}", status, body));
+    }
+
+    let data: DeviceCodeResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("Parse error: {}", e))?;
+
+    Ok(DeviceFlowStart {
+        device_code: data.device_code,
+        user_code: data.user_code,
+        verification_uri: data.verification_uri,
+        interval: data.interval.unwrap_or(5),
+    })
+}
+
+/// Step 2: Poll for access token — returns the token once user has authorized, or an error string
+pub async fn poll_device_flow(device_code: &str) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .post("https://github.com/login/oauth/access_token")
+        .header(ACCEPT, "application/json")
+        .header(USER_AGENT, "UniCreate/1.0")
+        .form(&[
+            ("client_id", GITHUB_CLIENT_ID),
+            ("device_code", device_code),
+            ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
+        ])
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    let data: DeviceTokenResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("Parse error: {}", e))?;
+
+    if let Some(token) = data.access_token {
+        return Ok(token);
+    }
+
+    match data.error.as_deref() {
+        Some("authorization_pending") => Err("pending".to_string()),
+        Some("slow_down") => Err("slow_down".to_string()),
+        Some("expired_token") => Err("Le code a expiré, veuillez réessayer.".to_string()),
+        Some("access_denied") => Err("Accès refusé par l'utilisateur.".to_string()),
+        Some(other) => Err(format!("Erreur: {}", other)),
+        None => Err("Réponse inattendue de GitHub".to_string()),
+    }
+}
+
+// ── PAT Auth (kept for backward compat) ──────────────────
 
 pub async fn authenticate_github(token: &str) -> Result<GitHubUser, String> {
     let client = reqwest::Client::new();
