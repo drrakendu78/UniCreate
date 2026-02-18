@@ -1,8 +1,6 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="src-tauri/icons/logo light.png" />
-    <source media="(prefers-color-scheme: light)" srcset="src-tauri/icons/logo dark.png" />
-    <img src="src-tauri/icons/logo dark.png" alt="UniCreate" width="280" />
+    <img src="src-tauri/icons/logo avec text sans bg.png" alt="UniCreate" width="280" />
   </picture>
 </p>
 
