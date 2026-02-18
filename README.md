@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="src-tauri/icons/128x128.png" alt="UniCreate Logo" width="80" />
-</p>
-
 <h1 align="center">UniCreate</h1>
 
 <p align="center">
