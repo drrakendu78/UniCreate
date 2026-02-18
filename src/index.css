@@ -23,29 +23,29 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --radius: 0.625rem;
   }
 
   .dark {
-    --background: 224 30% 7%;
-    --foreground: 210 40% 98%;
-    --card: 224 25% 10%;
-    --card-foreground: 210 40% 98%;
-    --popover: 224 25% 10%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 224 20% 16%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 224 20% 16%;
-    --muted-foreground: 215 20.2% 55.1%;
-    --accent: 224 20% 16%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 50.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 224 15% 18%;
-    --input: 224 15% 18%;
-    --ring: 217.2 91.2% 59.8%;
+    --background: 228 14% 6%;
+    --foreground: 220 20% 95%;
+    --card: 225 14% 9%;
+    --card-foreground: 220 20% 95%;
+    --popover: 225 14% 9%;
+    --popover-foreground: 220 20% 95%;
+    --primary: 217 92% 62%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 225 12% 13%;
+    --secondary-foreground: 220 15% 75%;
+    --muted: 225 12% 13%;
+    --muted-foreground: 220 10% 45%;
+    --accent: 225 15% 15%;
+    --accent-foreground: 220 20% 95%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 225 10% 13%;
+    --input: 225 12% 15%;
+    --ring: 217 92% 62%;
   }
 }
 
@@ -53,27 +53,39 @@
   * {
     @apply border-border;
   }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+  }
+  select, option {
+    background-color: hsl(var(--card));
+    color: hsl(var(--foreground));
   }
 }
 
-/* Scrollbar Windows 11 style */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.12); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.25); }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+::selection { background: hsl(var(--primary) / 0.2); }
 
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
-  border-radius: 3px;
-}
+/* Animations */
+@keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slide-in { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes scale-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+.animate-fade-in { animation: fade-in 0.3s ease-out; }
+.animate-slide-in { animation: slide-in 0.25s ease-out; }
+.animate-scale-in { animation: scale-in 0.2s ease-out; }
 
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
-}
+/* Glow effect */
+.glow { box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.15); }
+.glow-sm { box-shadow: 0 0 10px -3px hsl(var(--primary) / 0.1); }

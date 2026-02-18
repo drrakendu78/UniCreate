@@ -3,18 +3,17 @@ import { useManifestStore } from "@/stores/manifest-store";
 import { invoke } from "@tauri-apps/api/core";
 import { cn } from "@/lib/utils";
 import {
-  ChevronLeft,
-  ChevronRight,
+  ArrowLeft,
+  ArrowRight,
   Copy,
   Check,
-  FileCode2,
+  FileCode,
   Download,
   Loader2,
 } from "lucide-react";
 
 export function StepReview() {
-  const { manifest, generatedYaml, setGeneratedYaml, setStep } =
-    useManifestStore();
+  const { manifest, generatedYaml, setGeneratedYaml, setStep } = useManifestStore();
   const [activeTab, setActiveTab] = useState(0);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -25,10 +24,7 @@ export function StepReview() {
       setLoading(true);
       setError(null);
       try {
-        const files = await invoke<{ file_name: string; content: string }[]>(
-          "generate_yaml",
-          { manifest }
-        );
+        const files = await invoke<{ fileName: string; content: string }[]>("generate_yaml", { manifest });
         setGeneratedYaml(files);
       } catch (e) {
         setError(String(e));
@@ -46,7 +42,7 @@ export function StepReview() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownloadAll = async () => {
+  const handleSave = async () => {
     try {
       await invoke("save_yaml_files", {
         files: generatedYaml,
@@ -60,11 +56,9 @@ export function StepReview() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        <span className="ml-3 text-sm text-muted-foreground">
-          Generating YAML files...
-        </span>
+      <div className="flex h-64 flex-col items-center justify-center gap-3">
+        <Loader2 className="h-5 w-5 animate-spin text-primary/60" />
+        <span className="text-[13px] text-muted-foreground/60">Generating manifests...</span>
       </div>
     );
   }
@@ -72,15 +66,11 @@ export function StepReview() {
   if (error) {
     return (
       <div className="space-y-4">
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6">
-          <p className="text-sm text-destructive">{error}</p>
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+          <p className="text-[13px] text-destructive">{error}</p>
         </div>
-        <button
-          onClick={() => setStep("metadata")}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Back to Metadata
+        <button onClick={() => setStep("metadata")} className="flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back
         </button>
       </div>
     );
@@ -90,50 +80,58 @@ export function StepReview() {
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Review</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Preview the generated YAML manifests before submitting.
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground/60 mb-2">
+            <span>Step 3 of 4</span>
+          </div>
+          <h2 className="text-xl font-semibold tracking-tight">Review Manifests</h2>
+          <p className="mt-1.5 text-[13px] text-muted-foreground leading-relaxed">
+            Preview the YAML files that will be submitted. You can also save them locally.
           </p>
         </div>
         <button
-          onClick={handleDownloadAll}
-          className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          onClick={handleSave}
+          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
         >
-          <Download className="h-4 w-4" />
-          Save Files
+          <Download className="h-3 w-3" />
+          Save to Desktop
         </button>
       </div>
 
-      {/* File tabs */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="flex border-b border-border">
-          {generatedYaml.map((file, index) => (
-            <button
-              key={file.fileName}
-              onClick={() => setActiveTab(index)}
-              className={cn(
-                "flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors",
-                index === activeTab
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <FileCode2 className="h-3.5 w-3.5" />
-              {file.fileName}
-            </button>
-          ))}
-        </div>
-
-        {/* Code preview */}
-        <div className="relative">
+      {/* Code viewer */}
+      <div className="rounded-xl border border-border overflow-hidden">
+        {/* Tabs */}
+        <div className="flex items-center border-b border-border bg-card/30">
+          <div className="flex-1 flex items-center overflow-x-auto scrollbar-none">
+            {generatedYaml.map((file, index) => {
+              // Show short label: extract type from filename (e.g. "locale.fr-FR" or "installer")
+              const parts = file.fileName.replace(/\.yaml$/, "").split(".");
+              const label = parts.length > 2 ? parts.slice(2).join(".") : parts[parts.length - 1];
+              return (
+                <button
+                  key={file.fileName}
+                  onClick={() => { setActiveTab(index); setCopied(false); }}
+                  title={file.fileName}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-medium transition-colors border-b-2 -mb-px whitespace-nowrap shrink-0",
+                    index === activeTab
+                      ? "border-primary text-foreground bg-background/50"
+                      : "border-transparent text-muted-foreground/50 hover:text-muted-foreground"
+                  )}
+                >
+                  <FileCode className="h-3 w-3 shrink-0" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
           <button
             onClick={handleCopy}
-            className="absolute right-3 top-3 flex items-center gap-1.5 rounded-md bg-secondary px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="mx-2 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground shrink-0"
           >
             {copied ? (
               <>
                 <Check className="h-3 w-3 text-emerald-500" />
-                Copied
+                <span className="text-emerald-500">Copied</span>
               </>
             ) : (
               <>
@@ -142,32 +140,31 @@ export function StepReview() {
               </>
             )}
           </button>
-          <pre className="overflow-x-auto p-6 text-sm leading-relaxed">
-            <code className="text-foreground/90">
-              {generatedYaml[activeTab]?.content}
-            </code>
+        </div>
+
+        {/* Code */}
+        <div className="bg-[hsl(228,14%,7%)] p-5 overflow-x-auto">
+          <pre className="text-[12px] leading-[1.7] font-mono">
+            <code className="text-foreground/80">{generatedYaml[activeTab]?.content}</code>
           </pre>
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between">
+      {/* Nav */}
+      <div className="flex items-center justify-between pt-1">
         <button
           onClick={() => setStep("metadata")}
-          className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
+          className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5" />
           Back
         </button>
         <button
           onClick={() => setStep("submit")}
-          className={cn(
-            "flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-medium transition-colors",
-            "bg-primary text-primary-foreground hover:bg-primary/90"
-          )}
+          className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-[13px] font-medium text-white transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
         >
-          Next
-          <ChevronRight className="h-4 w-4" />
+          Continue
+          <ArrowRight className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>

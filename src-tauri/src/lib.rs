@@ -10,6 +10,11 @@ async fn download_and_hash(url: String) -> Result<hash::HashResult, String> {
 }
 
 #[tauri::command]
+fn hash_local_file(path: String) -> Result<hash::HashResult, String> {
+    hash::hash_local_file(&path)
+}
+
+#[tauri::command]
 fn generate_yaml(manifest: yaml_generator::ManifestData) -> Result<Vec<YamlFile>, String> {
     Ok(yaml_generator::generate_yaml(&manifest))
 }
@@ -28,7 +33,6 @@ async fn save_yaml_files(
         (&*package_id, &*package_id)
     };
 
-    // Save to Desktop
     let desktop = dirs::desktop_dir().ok_or("Cannot find desktop directory")?;
     let output_dir = desktop
         .join("winget-manifests")
@@ -46,7 +50,6 @@ async fn save_yaml_files(
             .map_err(|e| format!("Cannot write file: {}", e))?;
     }
 
-    // Open folder
     #[cfg(target_os = "windows")]
     {
         let _ = std::process::Command::new("explorer")
@@ -55,6 +58,21 @@ async fn save_yaml_files(
     }
 
     Ok(())
+}
+
+#[tauri::command]
+async fn fetch_existing_manifest(package_id: String) -> Result<github::ExistingManifest, String> {
+    github::fetch_existing_manifest(&package_id).await
+}
+
+#[tauri::command]
+async fn fetch_repo_metadata(url: String) -> Result<github::RepoMetadata, String> {
+    github::fetch_repo_metadata(&url).await
+}
+
+#[tauri::command]
+async fn check_package_exists(package_id: String) -> Result<bool, String> {
+    github::check_package_exists(&package_id).await
 }
 
 #[tauri::command]
@@ -72,6 +90,36 @@ async fn submit_manifest(
     github::submit_manifest(&token, &yaml_files, &package_id, &version).await
 }
 
+#[tauri::command]
+fn store_github_token(token: String) -> Result<(), String> {
+    let entry = keyring::Entry::new("unicreate", "github-token")
+        .map_err(|e| format!("Keyring error: {}", e))?;
+    entry.set_password(&token)
+        .map_err(|e| format!("Cannot store token: {}", e))
+}
+
+#[tauri::command]
+fn get_github_token() -> Result<Option<String>, String> {
+    let entry = keyring::Entry::new("unicreate", "github-token")
+        .map_err(|e| format!("Keyring error: {}", e))?;
+    match entry.get_password() {
+        Ok(token) => Ok(Some(token)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(format!("Cannot get token: {}", e)),
+    }
+}
+
+#[tauri::command]
+fn clear_github_token() -> Result<(), String> {
+    let entry = keyring::Entry::new("unicreate", "github-token")
+        .map_err(|e| format!("Keyring error: {}", e))?;
+    match entry.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(format!("Cannot clear token: {}", e)),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -79,10 +127,17 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             download_and_hash,
+            hash_local_file,
             generate_yaml,
             save_yaml_files,
+            fetch_existing_manifest,
+            fetch_repo_metadata,
+            check_package_exists,
             authenticate_github,
             submit_manifest,
+            store_github_token,
+            get_github_token,
+            clear_github_token,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

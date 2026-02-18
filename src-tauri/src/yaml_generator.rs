@@ -9,6 +9,7 @@ pub struct ManifestData {
     pub minimum_os_version: Option<String>,
     pub installers: Vec<InstallerEntry>,
     pub locale: LocaleData,
+    pub additional_locales: Option<Vec<LocaleData>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -27,6 +28,7 @@ pub struct InstallerEntry {
     pub elevation_requirement: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstallerSwitches {
@@ -63,7 +65,8 @@ pub struct LocaleData {
     pub release_notes_url: Option<String>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct YamlFile {
     pub file_name: String,
     pub content: String,
@@ -219,10 +222,63 @@ fn generate_locale_yaml(m: &ManifestData) -> YamlFile {
     }
 }
 
+fn generate_additional_locale_yaml(m: &ManifestData, l: &LocaleData) -> YamlFile {
+    let mut content = format!(
+        "PackageIdentifier: \"{}\"\n\
+         PackageVersion: \"{}\"\n\
+         PackageLocale: \"{}\"\n\
+         Publisher: \"{}\"\n",
+        m.package_identifier, m.package_version, l.package_locale, l.publisher
+    );
+
+    content.push_str(&opt_field("PublisherUrl", &l.publisher_url));
+    content.push_str(&opt_field("PublisherSupportUrl", &l.publisher_support_url));
+    content.push_str(&opt_field("PrivacyUrl", &l.privacy_url));
+    content.push_str(&opt_field("Author", &l.author));
+    content.push_str(&format!("PackageName: \"{}\"\n", l.package_name));
+    content.push_str(&opt_field("PackageUrl", &l.package_url));
+    content.push_str(&format!("License: \"{}\"\n", l.license));
+    content.push_str(&opt_field("LicenseUrl", &l.license_url));
+    content.push_str(&opt_field("Copyright", &l.copyright));
+    content.push_str(&opt_field("CopyrightUrl", &l.copyright_url));
+    content.push_str(&format!("ShortDescription: \"{}\"\n", l.short_description));
+    content.push_str(&opt_field("Description", &l.description));
+
+    if let Some(ref tags) = l.tags {
+        if !tags.is_empty() {
+            content.push_str("Tags:\n");
+            for tag in tags {
+                content.push_str(&format!("- \"{}\"\n", tag));
+            }
+        }
+    }
+
+    content.push_str(&opt_field("ReleaseNotes", &l.release_notes));
+    content.push_str(&opt_field("ReleaseNotesUrl", &l.release_notes_url));
+    content.push_str("ManifestType: \"locale\"\n");
+    content.push_str("ManifestVersion: \"1.9.0\"\n");
+
+    YamlFile {
+        file_name: format!(
+            "{}.locale.{}.yaml",
+            m.package_identifier, l.package_locale
+        ),
+        content,
+    }
+}
+
 pub fn generate_yaml(manifest: &ManifestData) -> Vec<YamlFile> {
-    vec![
+    let mut files = vec![
         generate_version_yaml(manifest),
         generate_installer_yaml(manifest),
         generate_locale_yaml(manifest),
-    ]
+    ];
+
+    if let Some(ref locales) = manifest.additional_locales {
+        for locale in locales {
+            files.push(generate_additional_locale_yaml(manifest, locale));
+        }
+    }
+
+    files
 }

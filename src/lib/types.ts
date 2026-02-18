@@ -75,6 +75,7 @@ export interface ManifestData {
   minimumOSVersion?: string;
   installers: InstallerEntry[];
   locale: LocaleData;
+  additionalLocales?: LocaleData[];
 }
 
 export interface HashResult {
@@ -82,6 +83,8 @@ export interface HashResult {
   fileSize: number;
   fileName: string;
   detectedType?: InstallerType;
+  detectedArch?: Architecture;
+  signatureSha256?: string;
 }
 
 export interface YamlFile {
@@ -94,4 +97,44 @@ export interface GitHubUser {
   avatarUrl: string;
 }
 
-export type WizardStep = "installer" | "metadata" | "review" | "submit";
+export interface RepoMetadata {
+  owner: string;
+  repoName: string;
+  description: string | null;
+  license: string | null;
+  homepage: string | null;
+  htmlUrl: string;
+  topics: string[];
+  version: string | null;
+  releaseNotes: string | null;
+  releaseUrl: string | null;
+}
+
+export interface ExistingManifest {
+  packageIdentifier: string;
+  latestVersion: string;
+  publisher: string;
+  packageName: string;
+  license: string;
+  shortDescription: string;
+  description: string | null;
+  publisherUrl: string | null;
+  packageUrl: string | null;
+  licenseUrl: string | null;
+  privacyUrl: string | null;
+  author: string | null;
+  moniker: string | null;
+  tags: string[];
+  releaseNotesUrl: string | null;
+  packageLocale: string;
+}
+
+export interface SubmissionEntry {
+  packageId: string;
+  version: string;
+  prUrl: string;
+  date: string;
+  user: string;
+}
+
+export type WizardStep = "home" | "installer" | "metadata" | "review" | "submit";
