@@ -195,6 +195,68 @@ export function Home() {
     };
   };
 
+  const getPrMergeableUi = (status: PrLiveStatus | undefined) => {
+    if (!status || status.status !== "open") return null;
+    const state = (status.mergeableState || "").toLowerCase();
+
+    if (!state || state === "unknown") {
+      return {
+        label: "Syncing",
+        title: "GitHub is still computing mergeability",
+        className: "rounded-full border border-border bg-muted/40 px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground",
+      };
+    }
+
+    if (state === "clean") {
+      return {
+        label: "Ready",
+        title: "Mergeable state: clean",
+        className: "rounded-full border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-500",
+      };
+    }
+    if (state === "blocked") {
+      return {
+        label: "Pending review",
+        title: "Mergeable state: blocked",
+        className: "rounded-full border border-sky-500/25 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-sky-400",
+      };
+    }
+    if (state === "behind") {
+      return {
+        label: "Behind",
+        title: "Mergeable state: behind",
+        className: "rounded-full border border-yellow-500/25 bg-yellow-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-400",
+      };
+    }
+    if (state === "draft") {
+      return {
+        label: "Draft",
+        title: "Mergeable state: draft",
+        className: "rounded-full border border-violet-500/25 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-violet-400",
+      };
+    }
+    if (state === "dirty") {
+      return {
+        label: "Conflicts",
+        title: "Mergeable state: dirty",
+        className: "rounded-full border border-red-500/25 bg-red-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-red-400",
+      };
+    }
+    if (state === "unstable") {
+      return {
+        label: "Checks failing",
+        title: "Mergeable state: unstable",
+        className: "rounded-full border border-orange-500/25 bg-orange-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-orange-400",
+      };
+    }
+
+    return {
+      label: state,
+      title: `Mergeable state: ${state}`,
+      className: "rounded-full border border-border bg-muted/40 px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground",
+    };
+  };
+
   const handleNew = () => {
     const hasDraft =
       manifest.installers.length > 0 ||
@@ -584,15 +646,24 @@ export function Home() {
                     {activeSessionToken && (() => {
                       const prStatus = prStatuses[sub.prUrl];
                       const badge = getPrStatusUi(prStatus);
+                      const mergeableBadge = getPrMergeableUi(prStatus);
                       return (
                         <>
                           <span className={badge.className}>{badge.label}</span>
+                          {mergeableBadge && (
+                            <span
+                              title={mergeableBadge.title}
+                              className={mergeableBadge.className}
+                            >
+                              {mergeableBadge.label}
+                            </span>
+                          )}
                           {prStatus?.hasIssues && prStatus.status !== "merged" && (
                             <span
                               title={prStatus.mergeableState || undefined}
-                              className="rounded-full border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-amber-500"
+                              className="rounded-full border border-red-500/25 bg-red-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-red-400"
                             >
-                              Attention
+                              Needs action
                             </span>
                           )}
                         </>

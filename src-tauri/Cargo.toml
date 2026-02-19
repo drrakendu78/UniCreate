@@ -1,6 +1,6 @@
 [package]
 name = "unicreate"
-version = "1.0.1"
+version = "1.0.2"
 description = "UniCreate - WinGet Manifest Creator GUI"
 authors = ["Drrakendu78"]
 edition = "2021"

@@ -72,7 +72,7 @@ function TitleBar() {
       <div className="flex items-center gap-2 pl-3.5 pr-4">
         <img src={logoMarkUrl} alt="UniCreate" className="h-5 w-5 object-contain" />
         <span className="text-[12px] font-semibold tracking-tight text-foreground/80">UniCreate</span>
-        <span className="text-[10px] text-muted-foreground/50 font-medium">v1.0.1</span>
+        <span className="text-[10px] text-muted-foreground/50 font-medium">v1.0.2</span>
       </div>
 
       {/* Center: Stepper (when not home) */}

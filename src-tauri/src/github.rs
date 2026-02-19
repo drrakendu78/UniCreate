@@ -780,11 +780,14 @@ fn has_pr_issues(status: &str, draft: bool, mergeable_state: Option<&str>) -> bo
         return true;
     }
     if draft {
-        return true;
+        return false;
     }
+
+    // Only flag explicit problematic states.
+    // "blocked" (often waiting review/checks) and "behind" are not treated as errors.
     matches!(
         mergeable_state,
-        Some("dirty" | "blocked" | "behind" | "unstable" | "draft")
+        Some("dirty" | "unstable")
     )
 }
 
