@@ -10,7 +10,6 @@ import StepSubmit from "@/pages/StepSubmit";
 import type { AppUpdateInfo } from "@/lib/types";
 import { CheckCircle2, AlertCircle, Info, X, Minus, Square, Copy, Download, X as XIcon } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-shell";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import logoMarkUrl from "@/assets/logo-mark.png";
 
@@ -110,16 +109,17 @@ function AppUpdatePopup({
   info,
   onLater,
   onPrimaryAction,
+  isApplying,
 }: {
   info: AppUpdateInfo;
   onLater: () => void;
   onPrimaryAction: () => void;
+  isApplying: boolean;
 }) {
   const publishedLabel = info.publishedAt
     ? new Date(info.publishedAt).toLocaleDateString()
     : null;
   const notes = info.releaseNotes?.trim();
-  const hasDirectExeDownload = !!info.downloadUrl;
 
   return (
     <div className="pointer-events-none fixed bottom-4 left-4 z-40 w-[min(30rem,calc(100vw-2rem))]">
@@ -142,6 +142,7 @@ function AppUpdatePopup({
           </div>
           <button
             onClick={onLater}
+            disabled={isApplying}
             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             aria-label="Close update popup"
           >
@@ -158,16 +159,18 @@ function AppUpdatePopup({
         <div className="mt-3 flex items-center justify-end gap-2">
           <button
             onClick={onLater}
+            disabled={isApplying}
             className="h-8 rounded-md border border-border px-3 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             Later
           </button>
           <button
             onClick={onPrimaryAction}
-            className="flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[12px] font-medium text-white transition-all hover:brightness-110"
+            disabled={isApplying}
+            className="flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[12px] font-medium text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Download className="h-3.5 w-3.5" />
-            {hasDirectExeDownload ? "Download EXE" : "Open Release"}
+            {isApplying ? "Updating..." : "Update"}
           </button>
         </div>
       </div>
@@ -178,7 +181,9 @@ function AppUpdatePopup({
 function App() {
   const currentStep = useManifestStore((s) => s.currentStep);
   const isHome = currentStep === "home";
+  const addToast = useToastStore((s) => s.addToast);
   const [appUpdateInfo, setAppUpdateInfo] = useState<AppUpdateInfo | null>(null);
+  const [isApplyingUpdate, setIsApplyingUpdate] = useState(false);
 
   // Ctrl+Enter keyboard shortcut
   useEffect(() => {
@@ -225,10 +230,27 @@ function App() {
 
   const openUpdateAction = async () => {
     if (!appUpdateInfo) return;
+    if (!appUpdateInfo.downloadUrl) {
+      addToast("No installer available in this release.", "error");
+      return;
+    }
+
+    setIsApplyingUpdate(true);
+
+    try {
+      await invoke("start_silent_update", {
+        downloadUrl: appUpdateInfo.downloadUrl,
+        fileName: appUpdateInfo.downloadName,
+      });
+    } catch (e) {
+      setIsApplyingUpdate(false);
+      addToast(`Update failed: ${String(e)}`, "error");
+      return;
+    }
+
     localStorage.setItem(DISMISSED_UPDATE_VERSION_KEY, appUpdateInfo.latestVersion);
-    const targetUrl = appUpdateInfo.downloadUrl ?? appUpdateInfo.releaseUrl;
     setAppUpdateInfo(null);
-    await open(targetUrl).catch(() => {});
+    await appWindow.close().catch(() => {});
   };
 
   return (
@@ -253,6 +275,7 @@ function App() {
           info={appUpdateInfo}
           onLater={dismissUpdatePopup}
           onPrimaryAction={openUpdateAction}
+          isApplying={isApplyingUpdate}
         />
       )}
 

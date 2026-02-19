@@ -1,5 +1,7 @@
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::yaml_generator::YamlFile;
 
@@ -200,6 +202,132 @@ pub struct AppUpdateInfo {
     pub published_at: Option<String>,
     pub download_url: Option<String>,
     pub download_name: Option<String>,
+}
+
+fn ps_quote(value: &str) -> String {
+    value.replace('\'', "''")
+}
+
+fn safe_file_name(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| match ch {
+            '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
+            _ => ch,
+        })
+        .collect()
+}
+
+fn file_name_from_download_url(url: &str) -> String {
+    let from_url = url
+        .split('?')
+        .next()
+        .and_then(|no_query| no_query.rsplit('/').next())
+        .unwrap_or("UniCreate-update.exe");
+    let trimmed = from_url.trim();
+    if trimmed.is_empty() {
+        "UniCreate-update.exe".to_string()
+    } else {
+        safe_file_name(trimmed)
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub fn start_silent_update(download_url: &str, file_name: Option<&str>) -> Result<(), String> {
+    let url = download_url.trim();
+    if url.is_empty() {
+        return Err("Missing update download URL".to_string());
+    }
+    if !url.starts_with("https://") {
+        return Err("Update URL must use https://".to_string());
+    }
+
+    let preferred_name = file_name
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(safe_file_name)
+        .unwrap_or_else(|| file_name_from_download_url(url));
+
+    let ext = Path::new(&preferred_name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if ext != "exe" && ext != "msi" {
+        return Err("Unsupported installer format. Expected .exe or .msi".to_string());
+    }
+
+    let temp_dir = std::env::temp_dir().join("unicreate-updater");
+    std::fs::create_dir_all(&temp_dir).map_err(|e| format!("Cannot prepare temp dir: {}", e))?;
+    let installer_path = temp_dir.join(preferred_name);
+
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let script_path = temp_dir.join(format!("run-update-{}.ps1", stamp));
+    let current_exe = std::env::current_exe().map_err(|e| format!("Cannot locate app executable: {}", e))?;
+    let current_pid = std::process::id();
+
+    let installer_path_ps = ps_quote(&installer_path.to_string_lossy());
+    let download_url_ps = ps_quote(url);
+    let current_exe_ps = ps_quote(&current_exe.to_string_lossy());
+
+    let install_block = if ext == "msi" {
+        format!(
+            "$p = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', '{installer}', '/qn', '/norestart') -PassThru -WindowStyle Hidden\n$p.WaitForExit()\nif ($p.ExitCode -ne 0) {{ exit $p.ExitCode }}",
+            installer = installer_path_ps
+        )
+    } else {
+        format!(
+            "$p = Start-Process -FilePath '{installer}' -ArgumentList @('/S') -PassThru -WindowStyle Hidden\n$p.WaitForExit()\nif ($p.ExitCode -ne 0) {{ exit $p.ExitCode }}",
+            installer = installer_path_ps
+        )
+    };
+
+    let script = format!(
+        "$ErrorActionPreference = 'Stop'\n\
+$ProgressPreference = 'SilentlyContinue'\n\
+$downloadUrl = '{download_url}'\n\
+$installerPath = '{installer_path}'\n\
+$appPath = '{app_path}'\n\
+Invoke-WebRequest -Uri $downloadUrl -OutFile $installerPath\n\
+for ($i = 0; $i -lt 600; $i++) {{\n\
+  $proc = Get-Process -Id {current_pid} -ErrorAction SilentlyContinue\n\
+  if (-not $proc) {{ break }}\n\
+  Start-Sleep -Milliseconds 250\n\
+}}\n\
+{install_block}\n\
+Start-Sleep -Seconds 1\n\
+Start-Process -FilePath $appPath\n",
+        download_url = download_url_ps,
+        installer_path = installer_path_ps,
+        app_path = current_exe_ps,
+        current_pid = current_pid,
+        install_block = install_block
+    );
+
+    std::fs::write(&script_path, script).map_err(|e| format!("Cannot write updater script: {}", e))?;
+
+    std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-WindowStyle",
+            "Hidden",
+            "-File",
+            &script_path.to_string_lossy(),
+        ])
+        .spawn()
+        .map_err(|e| format!("Cannot start updater: {}", e))?;
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn start_silent_update(_download_url: &str, _file_name: Option<&str>) -> Result<(), String> {
+    Err("Silent update is currently supported on Windows only".to_string())
 }
 
 /// Extract owner/repo from a GitHub URL (releases, raw, etc.)

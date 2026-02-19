@@ -81,6 +81,11 @@ async fn check_app_update() -> Result<github::AppUpdateInfo, String> {
 }
 
 #[tauri::command]
+fn start_silent_update(download_url: String, file_name: Option<String>) -> Result<(), String> {
+    github::start_silent_update(&download_url, file_name.as_deref())
+}
+
+#[tauri::command]
 async fn start_device_flow() -> Result<github::DeviceFlowStart, String> {
     github::start_device_flow().await
 }
@@ -165,6 +170,7 @@ pub fn run() {
             fetch_repo_metadata,
             check_package_exists,
             check_app_update,
+            start_silent_update,
             start_device_flow,
             poll_device_flow,
             authenticate_github,
