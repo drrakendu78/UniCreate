@@ -13,7 +13,8 @@
   --bg: hsl(var(--background));
   --text: hsl(var(--foreground));
   --muted: hsl(var(--muted-foreground));
-  --line: hsl(var(--border));
+  --line: hsl(var(--border) / 0.58);
+  --line-soft: hsl(var(--border) / 0.4);
   --card-layer: hsl(var(--card));
   --card-layer-2: hsl(var(--card-soft));
   --primary-color: hsl(var(--primary));
@@ -23,6 +24,15 @@
 
 * {
   box-sizing: border-box;
+}
+
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.5), 0 0 0 3px hsl(var(--primary) / 0.18);
 }
 
 html,
@@ -78,7 +88,7 @@ body {
 }
 
 .app-shell {
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-soft);
   border-radius: 12px;
   background: hsl(var(--card) / 0.55);
   backdrop-filter: blur(2px);
@@ -88,7 +98,7 @@ body {
 
 .app-titlebar {
   height: 46px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--line-soft);
   padding: 0 16px;
   display: flex;
   justify-content: space-between;
@@ -139,13 +149,13 @@ body {
   display: flex;
   gap: 8px;
   padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--line-soft);
   background: hsl(226 16% 10% / 0.85);
   overflow-x: auto;
 }
 
 .step {
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-soft);
   color: var(--muted);
   border-radius: 999px;
   font-size: 11px;
@@ -163,7 +173,7 @@ body {
   border-radius: 999px;
   display: inline-grid;
   place-items: center;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-soft);
   font-family: "IBM Plex Mono", monospace;
   font-size: 10px;
 }
@@ -248,13 +258,13 @@ h1 {
 .btn-soft {
   color: hsl(var(--foreground));
   background: hsl(var(--card-soft));
-  border-color: var(--line);
+  border-color: var(--line-soft);
 }
 
 .btn-ghost {
   color: var(--muted);
   background: transparent;
-  border-color: var(--line);
+  border-color: var(--line-soft);
 }
 
 .stats {
@@ -265,7 +275,7 @@ h1 {
 }
 
 .stats article {
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-soft);
   border-radius: 10px;
   background: hsl(var(--card) / 0.45);
   padding: 12px;
@@ -274,7 +284,7 @@ h1 {
 
 .stats article:hover {
   background: hsl(var(--card) / 0.72);
-  border-color: hsl(var(--primary) / 0.3);
+  border-color: hsl(var(--border) / 0.7);
 }
 
 .stats p {
@@ -298,7 +308,7 @@ h1 {
 }
 
 .panel {
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-soft);
   border-radius: 12px;
   background: hsl(var(--card) / 0.5);
   padding: 18px;
@@ -307,7 +317,7 @@ h1 {
 
 .panel:hover {
   background: hsl(var(--card) / 0.78);
-  border-color: hsl(var(--primary) / 0.28);
+  border-color: hsl(var(--border) / 0.7);
 }
 
 .panel h2 {
@@ -332,7 +342,7 @@ h1 {
 }
 
 .badge {
-  border: 1px solid hsl(var(--primary) / 0.4);
+  border: 1px solid hsl(var(--primary) / 0.28);
   background: hsl(var(--primary) / 0.18);
   color: hsl(var(--foreground));
   font-size: 10px;
@@ -351,13 +361,13 @@ h1 {
   width: 100%;
   display: block;
   border-radius: 10px;
-  border: 1px solid hsl(var(--border) / 0.7);
+  border: 1px solid var(--line-soft);
   background: hsl(var(--background));
 }
 
 .notes pre {
   margin: 14px 0 0;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-soft);
   background: hsl(226 16% 10%);
   color: hsl(var(--foreground));
   border-radius: 10px;
