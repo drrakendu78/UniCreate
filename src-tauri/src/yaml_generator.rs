@@ -76,8 +76,75 @@ pub struct YamlFile {
 
 fn opt_field(key: &str, value: &Option<String>) -> String {
     match value {
-        Some(v) if !v.is_empty() => format!("{}: \"{}\"\n", key, v),
+        Some(v) if !v.is_empty() => format_yaml_field(key, v),
         _ => String::new(),
+    }
+}
+
+fn needs_yaml_quotes(value: &str) -> bool {
+    if value.is_empty() || value.trim() != value {
+        return true;
+    }
+
+    let lower = value.to_ascii_lowercase();
+    if matches!(
+        lower.as_str(),
+        "null" | "~" | "true" | "false" | "yes" | "no" | "on" | "off"
+    ) {
+        return true;
+    }
+
+    let starts_with_special = matches!(
+        value.chars().next(),
+        Some('-'
+            | '?'
+            | ':'
+            | ','
+            | '['
+            | ']'
+            | '{'
+            | '}'
+            | '#'
+            | '&'
+            | '*'
+            | '!'
+            | '|'
+            | '>'
+            | '@'
+            | '`'
+            | '"'
+            | '\'')
+    );
+    if starts_with_special {
+        return true;
+    }
+
+    value.contains(": ")
+        || value.contains(" #")
+        || value.ends_with(':')
+        || value.contains('\t')
+        || value.chars().any(|c| c.is_control())
+}
+
+fn format_yaml_scalar(value: &str) -> String {
+    if needs_yaml_quotes(value) {
+        format!("'{}'", value.replace('\'', "''"))
+    } else {
+        value.to_string()
+    }
+}
+
+fn format_yaml_field(key: &str, value: &str) -> String {
+    if value.contains('\n') {
+        let mut out = format!("{}: |-\n", key);
+        for line in value.lines() {
+            out.push_str("  ");
+            out.push_str(line);
+            out.push('\n');
+        }
+        out
+    } else {
+        format!("{}: {}\n", key, format_yaml_scalar(value))
     }
 }
 
@@ -89,18 +156,12 @@ fn schema_header(manifest_kind: &str) -> String {
 }
 
 fn generate_version_yaml(m: &ManifestData) -> YamlFile {
-    let content = format!(
-        "{}PackageIdentifier: \"{}\"\n\
-         PackageVersion: \"{}\"\n\
-         DefaultLocale: \"{}\"\n\
-         ManifestType: \"version\"\n\
-         ManifestVersion: \"{}\"\n",
-        schema_header("version"),
-        m.package_identifier,
-        m.package_version,
-        m.default_locale,
-        MANIFEST_SCHEMA_VERSION
-    );
+    let mut content = schema_header("version");
+    content.push_str(&format_yaml_field("PackageIdentifier", &m.package_identifier));
+    content.push_str(&format_yaml_field("PackageVersion", &m.package_version));
+    content.push_str(&format_yaml_field("DefaultLocale", &m.default_locale));
+    content.push_str(&format_yaml_field("ManifestType", "version"));
+    content.push_str(&format_yaml_field("ManifestVersion", MANIFEST_SCHEMA_VERSION));
     YamlFile {
         file_name: format!("{}.yaml", m.package_identifier),
         content,
@@ -108,31 +169,36 @@ fn generate_version_yaml(m: &ManifestData) -> YamlFile {
 }
 
 fn generate_installer_yaml(m: &ManifestData) -> YamlFile {
-    let mut content = format!(
-        "{}PackageIdentifier: \"{}\"\n\
-         PackageVersion: \"{}\"\n",
-        schema_header("installer"),
-        m.package_identifier,
-        m.package_version
-    );
+    let mut content = schema_header("installer");
+    content.push_str(&format_yaml_field("PackageIdentifier", &m.package_identifier));
+    content.push_str(&format_yaml_field("PackageVersion", &m.package_version));
 
     if let Some(ref os) = m.minimum_os_version {
         if !os.is_empty() {
-            content.push_str(&format!("MinimumOSVersion: \"{}\"\n", os));
+            content.push_str(&format_yaml_field("MinimumOSVersion", os));
         }
     }
 
     content.push_str("Installers:\n");
 
     for inst in &m.installers {
-        content.push_str(&format!("- Architecture: \"{}\"\n", inst.architecture));
-        content.push_str(&format!("  InstallerType: \"{}\"\n", inst.installer_type));
-        content.push_str(&format!("  InstallerUrl: \"{}\"\n", inst.installer_url));
+        content.push_str(&format!(
+            "- Architecture: {}\n",
+            format_yaml_scalar(&inst.architecture)
+        ));
+        content.push_str(&format!(
+            "  InstallerType: {}\n",
+            format_yaml_scalar(&inst.installer_type)
+        ));
+        content.push_str(&format!(
+            "  InstallerUrl: {}\n",
+            format_yaml_scalar(&inst.installer_url)
+        ));
         content.push_str(&format!("  InstallerSha256: {}\n", inst.installer_sha256));
 
         if let Some(ref scope) = inst.scope {
             if !scope.is_empty() {
-                content.push_str(&format!("  Scope: \"{}\"\n", scope));
+                content.push_str(&format!("  Scope: {}\n", format_yaml_scalar(scope)));
             }
         }
         if let Some(ref sig) = inst.signature_sha256 {
@@ -142,24 +208,30 @@ fn generate_installer_yaml(m: &ManifestData) -> YamlFile {
         }
         if let Some(ref pc) = inst.product_code {
             if !pc.is_empty() {
-                content.push_str(&format!("  ProductCode: \"{}\"\n", pc));
+                content.push_str(&format!("  ProductCode: {}\n", format_yaml_scalar(pc)));
             }
         }
         if let Some(ref ub) = inst.upgrade_behavior {
             if !ub.is_empty() {
-                content.push_str(&format!("  UpgradeBehavior: \"{}\"\n", ub));
+                content.push_str(&format!(
+                    "  UpgradeBehavior: {}\n",
+                    format_yaml_scalar(ub)
+                ));
             }
         }
         if let Some(ref er) = inst.elevation_requirement {
             if !er.is_empty() {
-                content.push_str(&format!("  ElevationRequirement: \"{}\"\n", er));
+                content.push_str(&format!(
+                    "  ElevationRequirement: {}\n",
+                    format_yaml_scalar(er)
+                ));
             }
         }
         if let Some(ref modes) = inst.install_modes {
             if !modes.is_empty() {
                 content.push_str("  InstallModes:\n");
                 for mode in modes {
-                    content.push_str(&format!("  - \"{}\"\n", mode));
+                    content.push_str(&format!("  - {}\n", format_yaml_scalar(mode)));
                 }
             }
         }
@@ -188,19 +260,22 @@ fn generate_installer_yaml(m: &ManifestData) -> YamlFile {
         if silent.is_some() || silent_with_progress.is_some() || custom.is_some() {
             content.push_str("  InstallerSwitches:\n");
             if let Some(v) = silent {
-                content.push_str(&format!("    Silent: \"{}\"\n", v));
+                content.push_str(&format!("    Silent: {}\n", format_yaml_scalar(&v)));
             }
             if let Some(v) = silent_with_progress {
-                content.push_str(&format!("    SilentWithProgress: \"{}\"\n", v));
+                content.push_str(&format!(
+                    "    SilentWithProgress: {}\n",
+                    format_yaml_scalar(&v)
+                ));
             }
             if let Some(v) = custom {
-                content.push_str(&format!("    Custom: \"{}\"\n", v));
+                content.push_str(&format!("    Custom: {}\n", format_yaml_scalar(&v)));
             }
         }
     }
 
-    content.push_str("ManifestType: \"installer\"\n");
-    content.push_str(&format!("ManifestVersion: \"{}\"\n", MANIFEST_SCHEMA_VERSION));
+    content.push_str(&format_yaml_field("ManifestType", "installer"));
+    content.push_str(&format_yaml_field("ManifestVersion", MANIFEST_SCHEMA_VERSION));
 
     YamlFile {
         file_name: format!("{}.installer.yaml", m.package_identifier),
@@ -210,29 +285,23 @@ fn generate_installer_yaml(m: &ManifestData) -> YamlFile {
 
 fn generate_locale_yaml(m: &ManifestData) -> YamlFile {
     let l = &m.locale;
-    let mut content = format!(
-        "{}PackageIdentifier: \"{}\"\n\
-         PackageVersion: \"{}\"\n\
-         PackageLocale: \"{}\"\n\
-         Publisher: \"{}\"\n",
-        schema_header("defaultLocale"),
-        m.package_identifier,
-        m.package_version,
-        l.package_locale,
-        l.publisher
-    );
+    let mut content = schema_header("defaultLocale");
+    content.push_str(&format_yaml_field("PackageIdentifier", &m.package_identifier));
+    content.push_str(&format_yaml_field("PackageVersion", &m.package_version));
+    content.push_str(&format_yaml_field("PackageLocale", &l.package_locale));
+    content.push_str(&format_yaml_field("Publisher", &l.publisher));
 
     content.push_str(&opt_field("PublisherUrl", &l.publisher_url));
     content.push_str(&opt_field("PublisherSupportUrl", &l.publisher_support_url));
     content.push_str(&opt_field("PrivacyUrl", &l.privacy_url));
     content.push_str(&opt_field("Author", &l.author));
-    content.push_str(&format!("PackageName: \"{}\"\n", l.package_name));
+    content.push_str(&format_yaml_field("PackageName", &l.package_name));
     content.push_str(&opt_field("PackageUrl", &l.package_url));
-    content.push_str(&format!("License: \"{}\"\n", l.license));
+    content.push_str(&format_yaml_field("License", &l.license));
     content.push_str(&opt_field("LicenseUrl", &l.license_url));
     content.push_str(&opt_field("Copyright", &l.copyright));
     content.push_str(&opt_field("CopyrightUrl", &l.copyright_url));
-    content.push_str(&format!("ShortDescription: \"{}\"\n", l.short_description));
+    content.push_str(&format_yaml_field("ShortDescription", &l.short_description));
     content.push_str(&opt_field("Description", &l.description));
     content.push_str(&opt_field("Moniker", &l.moniker));
 
@@ -240,15 +309,15 @@ fn generate_locale_yaml(m: &ManifestData) -> YamlFile {
         if !tags.is_empty() {
             content.push_str("Tags:\n");
             for tag in tags {
-                content.push_str(&format!("- \"{}\"\n", tag));
+                content.push_str(&format!("- {}\n", format_yaml_scalar(tag)));
             }
         }
     }
 
     content.push_str(&opt_field("ReleaseNotes", &l.release_notes));
     content.push_str(&opt_field("ReleaseNotesUrl", &l.release_notes_url));
-    content.push_str("ManifestType: \"defaultLocale\"\n");
-    content.push_str(&format!("ManifestVersion: \"{}\"\n", MANIFEST_SCHEMA_VERSION));
+    content.push_str(&format_yaml_field("ManifestType", "defaultLocale"));
+    content.push_str(&format_yaml_field("ManifestVersion", MANIFEST_SCHEMA_VERSION));
 
     YamlFile {
         file_name: format!(
@@ -260,44 +329,38 @@ fn generate_locale_yaml(m: &ManifestData) -> YamlFile {
 }
 
 fn generate_additional_locale_yaml(m: &ManifestData, l: &LocaleData) -> YamlFile {
-    let mut content = format!(
-        "{}PackageIdentifier: \"{}\"\n\
-         PackageVersion: \"{}\"\n\
-         PackageLocale: \"{}\"\n\
-         Publisher: \"{}\"\n",
-        schema_header("locale"),
-        m.package_identifier,
-        m.package_version,
-        l.package_locale,
-        l.publisher
-    );
+    let mut content = schema_header("locale");
+    content.push_str(&format_yaml_field("PackageIdentifier", &m.package_identifier));
+    content.push_str(&format_yaml_field("PackageVersion", &m.package_version));
+    content.push_str(&format_yaml_field("PackageLocale", &l.package_locale));
+    content.push_str(&format_yaml_field("Publisher", &l.publisher));
 
     content.push_str(&opt_field("PublisherUrl", &l.publisher_url));
     content.push_str(&opt_field("PublisherSupportUrl", &l.publisher_support_url));
     content.push_str(&opt_field("PrivacyUrl", &l.privacy_url));
     content.push_str(&opt_field("Author", &l.author));
-    content.push_str(&format!("PackageName: \"{}\"\n", l.package_name));
+    content.push_str(&format_yaml_field("PackageName", &l.package_name));
     content.push_str(&opt_field("PackageUrl", &l.package_url));
-    content.push_str(&format!("License: \"{}\"\n", l.license));
+    content.push_str(&format_yaml_field("License", &l.license));
     content.push_str(&opt_field("LicenseUrl", &l.license_url));
     content.push_str(&opt_field("Copyright", &l.copyright));
     content.push_str(&opt_field("CopyrightUrl", &l.copyright_url));
-    content.push_str(&format!("ShortDescription: \"{}\"\n", l.short_description));
+    content.push_str(&format_yaml_field("ShortDescription", &l.short_description));
     content.push_str(&opt_field("Description", &l.description));
 
     if let Some(ref tags) = l.tags {
         if !tags.is_empty() {
             content.push_str("Tags:\n");
             for tag in tags {
-                content.push_str(&format!("- \"{}\"\n", tag));
+                content.push_str(&format!("- {}\n", format_yaml_scalar(tag)));
             }
         }
     }
 
     content.push_str(&opt_field("ReleaseNotes", &l.release_notes));
     content.push_str(&opt_field("ReleaseNotesUrl", &l.release_notes_url));
-    content.push_str("ManifestType: \"locale\"\n");
-    content.push_str(&format!("ManifestVersion: \"{}\"\n", MANIFEST_SCHEMA_VERSION));
+    content.push_str(&format_yaml_field("ManifestType", "locale"));
+    content.push_str(&format_yaml_field("ManifestVersion", MANIFEST_SCHEMA_VERSION));
 
     YamlFile {
         file_name: format!(

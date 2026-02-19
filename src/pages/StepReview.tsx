@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Copy,
   Check,
+  Pencil,
   FileCode,
   Download,
   Loader2,
@@ -18,6 +19,7 @@ export function StepReview() {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     const generate = async () => {
@@ -40,6 +42,14 @@ export function StepReview() {
     await navigator.clipboard.writeText(generatedYaml[activeTab].content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleEditActiveYaml = (content: string) => {
+    const current = generatedYaml[activeTab];
+    if (!current) return;
+    const files = [...generatedYaml];
+    files[activeTab] = { ...current, content };
+    setGeneratedYaml(files);
   };
 
   const handleSave = async () => {
@@ -125,6 +135,18 @@ export function StepReview() {
             })}
           </div>
           <button
+            onClick={() => setIsEditing((v) => !v)}
+            className={cn(
+              "mx-2 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors shrink-0",
+              isEditing
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <Pencil className="h-3 w-3" />
+            {isEditing ? "Done" : "Edit YAML"}
+          </button>
+          <button
             onClick={handleCopy}
             className="mx-2 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground shrink-0"
           >
@@ -144,11 +166,20 @@ export function StepReview() {
 
         {/* Code */}
         <div className="bg-[hsl(210,40%,98%)] dark:bg-[hsl(228,14%,7%)] p-5 overflow-x-auto">
-          <pre className="text-[12px] leading-[1.7] font-mono">
-            <code className="text-[hsl(222.2,84%,4.9%)] dark:text-[hsl(220,20%,95%)]">
-              {generatedYaml[activeTab]?.content}
-            </code>
-          </pre>
+          {isEditing ? (
+            <textarea
+              value={generatedYaml[activeTab]?.content || ""}
+              onChange={(e) => handleEditActiveYaml(e.target.value)}
+              spellCheck={false}
+              className="min-h-[420px] w-full resize-y rounded-lg border border-border bg-background/70 p-3 font-mono text-[12px] leading-[1.7] text-[hsl(222.2,84%,4.9%)] dark:text-[hsl(220,20%,95%)] focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+            />
+          ) : (
+            <pre className="text-[12px] leading-[1.7] font-mono">
+              <code className="text-[hsl(222.2,84%,4.9%)] dark:text-[hsl(220,20%,95%)]">
+                {generatedYaml[activeTab]?.content}
+              </code>
+            </pre>
+          )}
         </div>
       </div>
 
