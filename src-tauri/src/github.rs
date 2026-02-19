@@ -174,11 +174,19 @@ struct GitHubLicense {
 }
 
 #[derive(Debug, Deserialize)]
+struct GitHubReleaseAsset {
+    name: String,
+    browser_download_url: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct GitHubRelease {
     tag_name: String,
     body: Option<String>,
     html_url: String,
     published_at: Option<String>,
+    #[serde(default)]
+    assets: Vec<GitHubReleaseAsset>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -190,6 +198,8 @@ pub struct AppUpdateInfo {
     pub release_notes: Option<String>,
     pub release_url: String,
     pub published_at: Option<String>,
+    pub download_url: Option<String>,
+    pub download_name: Option<String>,
 }
 
 /// Extract owner/repo from a GitHub URL (releases, raw, etc.)
@@ -229,7 +239,8 @@ fn clean_version(tag: &str) -> String {
 }
 
 fn parse_version_parts(version: &str) -> Vec<u32> {
-    let clean = clean_version(version)
+    let normalized = clean_version(version);
+    let clean = normalized
         .split('-')
         .next()
         .unwrap_or("")
@@ -265,6 +276,37 @@ fn is_newer_version(latest: &str, current: &str) -> bool {
     false
 }
 
+fn pick_preferred_exe_asset(release: &GitHubRelease) -> Option<&GitHubReleaseAsset> {
+    fn score(asset_name: &str) -> i32 {
+        let lower = asset_name.to_ascii_lowercase();
+        if !lower.ends_with(".exe") {
+            return i32::MIN / 2;
+        }
+
+        let mut points = 0;
+
+        if lower.contains("setup") || lower.contains("installer") {
+            points += 40;
+        }
+        if lower.contains("x64") || lower.contains("amd64") || lower.contains("win64") {
+            points += 10;
+        }
+        if lower.contains("portable") {
+            points -= 12;
+        }
+        if lower.contains("arm64") || lower.contains("arm") {
+            points -= 4;
+        }
+        if lower.contains("debug") || lower.contains("symbols") || lower.contains("pdb") {
+            points -= 50;
+        }
+
+        points
+    }
+
+    release.assets.iter().max_by_key(|asset| score(&asset.name))
+}
+
 pub async fn check_app_update() -> Result<AppUpdateInfo, String> {
     let client = reqwest::Client::new();
     let mut headers = HeaderMap::new();
@@ -284,6 +326,13 @@ pub async fn check_app_update() -> Result<AppUpdateInfo, String> {
     let current = env!("CARGO_PKG_VERSION").to_string();
     let latest = clean_version(&release.tag_name);
     let has_update = is_newer_version(&latest, &current);
+    let (download_url, download_name) = match pick_preferred_exe_asset(&release) {
+        Some(asset) => (
+            Some(asset.browser_download_url.clone()),
+            Some(asset.name.clone()),
+        ),
+        None => (None, None),
+    };
 
     Ok(AppUpdateInfo {
         current_version: current,
@@ -292,6 +341,8 @@ pub async fn check_app_update() -> Result<AppUpdateInfo, String> {
         release_notes: release.body,
         release_url: release.html_url,
         published_at: release.published_at,
+        download_url,
+        download_name,
     })
 }
 

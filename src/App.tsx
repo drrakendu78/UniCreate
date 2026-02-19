@@ -7,11 +7,15 @@ import { StepInstaller } from "@/pages/StepInstaller";
 import { StepMetadata } from "@/pages/StepMetadata";
 import { StepReview } from "@/pages/StepReview";
 import StepSubmit from "@/pages/StepSubmit";
-import { CheckCircle2, AlertCircle, Info, X, Minus, Square, Copy, X as XIcon } from "lucide-react";
+import type { AppUpdateInfo } from "@/lib/types";
+import { CheckCircle2, AlertCircle, Info, X, Minus, Square, Copy, Download, X as XIcon } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-shell";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import logoMarkUrl from "@/assets/logo-mark.png";
 
 const appWindow = getCurrentWindow();
+const DISMISSED_UPDATE_VERSION_KEY = "unicreate-dismissed-update-version";
 
 function Toasts() {
   const { toasts, removeToast } = useToastStore();
@@ -102,9 +106,79 @@ function TitleBar() {
   );
 }
 
+function AppUpdatePopup({
+  info,
+  onLater,
+  onPrimaryAction,
+}: {
+  info: AppUpdateInfo;
+  onLater: () => void;
+  onPrimaryAction: () => void;
+}) {
+  const publishedLabel = info.publishedAt
+    ? new Date(info.publishedAt).toLocaleDateString()
+    : null;
+  const notes = info.releaseNotes?.trim();
+  const hasDirectExeDownload = !!info.downloadUrl;
+
+  return (
+    <div className="pointer-events-none fixed bottom-4 left-4 z-40 w-[min(30rem,calc(100vw-2rem))]">
+      <div className="pointer-events-auto rounded-xl border border-primary/20 bg-card/95 p-4 shadow-2xl backdrop-blur animate-slide-in">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-[13px] font-semibold text-foreground">Update available</h3>
+            <p className="mt-1 text-[12px] text-muted-foreground">
+              UniCreate {info.latestVersion} is available
+              {publishedLabel ? ` (published ${publishedLabel})` : ""}.
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground/90">
+              Current version: {info.currentVersion}
+            </p>
+            {info.downloadName && (
+              <p className="mt-1 text-[11px] text-muted-foreground/90">
+                Installer: {info.downloadName}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={onLater}
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label="Close update popup"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {notes && (
+          <div className="mt-3 max-h-28 overflow-y-auto rounded-lg border border-border/70 bg-secondary/20 p-2.5 text-[11px] text-foreground/80 whitespace-pre-wrap">
+            {notes}
+          </div>
+        )}
+
+        <div className="mt-3 flex items-center justify-end gap-2">
+          <button
+            onClick={onLater}
+            className="h-8 rounded-md border border-border px-3 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            Later
+          </button>
+          <button
+            onClick={onPrimaryAction}
+            className="flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[12px] font-medium text-white transition-all hover:brightness-110"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {hasDirectExeDownload ? "Download EXE" : "Open Release"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const currentStep = useManifestStore((s) => s.currentStep);
   const isHome = currentStep === "home";
+  const [appUpdateInfo, setAppUpdateInfo] = useState<AppUpdateInfo | null>(null);
 
   // Ctrl+Enter keyboard shortcut
   useEffect(() => {
@@ -120,6 +194,42 @@ function App() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkUpdate = async () => {
+      try {
+        const info = await invoke<AppUpdateInfo>("check_app_update");
+        if (cancelled || !info.hasUpdate) return;
+        const dismissedVersion = localStorage.getItem(DISMISSED_UPDATE_VERSION_KEY);
+        if (dismissedVersion === info.latestVersion) return;
+        setAppUpdateInfo(info);
+      } catch {
+        // Ignore update check failures to keep startup resilient.
+      }
+    };
+
+    void checkUpdate();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const dismissUpdatePopup = () => {
+    if (appUpdateInfo) {
+      localStorage.setItem(DISMISSED_UPDATE_VERSION_KEY, appUpdateInfo.latestVersion);
+    }
+    setAppUpdateInfo(null);
+  };
+
+  const openUpdateAction = async () => {
+    if (!appUpdateInfo) return;
+    localStorage.setItem(DISMISSED_UPDATE_VERSION_KEY, appUpdateInfo.latestVersion);
+    const targetUrl = appUpdateInfo.downloadUrl ?? appUpdateInfo.releaseUrl;
+    setAppUpdateInfo(null);
+    await open(targetUrl).catch(() => {});
+  };
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background rounded-lg">
@@ -137,6 +247,14 @@ function App() {
           {currentStep === "submit" && <StepSubmit />}
         </div>
       </main>
+
+      {appUpdateInfo && (
+        <AppUpdatePopup
+          info={appUpdateInfo}
+          onLater={dismissUpdatePopup}
+          onPrimaryAction={openUpdateAction}
+        />
+      )}
 
       <Toasts />
     </div>

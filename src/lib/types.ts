@@ -143,6 +143,17 @@ export interface RecoveredPr {
   user_login: string;
 }
 
+export interface AppUpdateInfo {
+  currentVersion: string;
+  latestVersion: string;
+  hasUpdate: boolean;
+  releaseNotes: string | null;
+  releaseUrl: string;
+  publishedAt: string | null;
+  downloadUrl: string | null;
+  downloadName: string | null;
+}
+
 export type PrLiveState = "open" | "merged" | "closed" | "unknown";
 
 export interface PrLiveStatus {
