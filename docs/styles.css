@@ -37,7 +37,7 @@ body {
     radial-gradient(circle at 100% 0%, hsl(192 95% 42% / 0.2) 0%, transparent 35%),
     linear-gradient(180deg, hsl(228 14% 7%) 0%, var(--bg) 100%);
   color: var(--text);
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
 }
 
@@ -79,9 +79,10 @@ body {
 
 .app-shell {
   border: 1px solid var(--line);
-  border-radius: 18px;
-  background: linear-gradient(180deg, hsl(226 16% 10%) 0%, hsl(var(--background)) 100%);
-  box-shadow: var(--shadow);
+  border-radius: 12px;
+  background: hsl(var(--card) / 0.55);
+  backdrop-filter: blur(2px);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
   overflow: hidden;
 }
 
@@ -183,6 +184,7 @@ body {
   padding: 30px 28px 28px;
   display: grid;
   gap: 15px;
+  background: hsl(var(--background) / 0.28);
 }
 
 .eyebrow {
@@ -198,6 +200,7 @@ h1 {
   max-width: 16ch;
   font-size: clamp(28px, 5vw, 52px);
   line-height: 1.06;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
 }
 
 .sub {
@@ -263,9 +266,15 @@ h1 {
 
 .stats article {
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--card-layer);
+  border-radius: 10px;
+  background: hsl(var(--card) / 0.45);
   padding: 12px;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.stats article:hover {
+  background: hsl(var(--card) / 0.72);
+  border-color: hsl(var(--primary) / 0.3);
 }
 
 .stats p {
@@ -290,9 +299,15 @@ h1 {
 
 .panel {
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: linear-gradient(180deg, var(--card-layer) 0%, var(--card-layer-2) 100%);
+  border-radius: 12px;
+  background: hsl(var(--card) / 0.5);
   padding: 18px;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.panel:hover {
+  background: hsl(var(--card) / 0.78);
+  border-color: hsl(var(--primary) / 0.28);
 }
 
 .panel h2 {
@@ -336,8 +351,8 @@ h1 {
   width: 100%;
   display: block;
   border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--bg);
+  border: 1px solid hsl(var(--border) / 0.7);
+  background: hsl(var(--background));
 }
 
 .notes pre {
