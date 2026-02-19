@@ -1,0 +1,118 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UniCreate | WinGet manifest creator</title>
+    <meta
+      name="description"
+      content="UniCreate is a GUI-first WinGet manifest creator with release automation and PR tracking."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="aurora aurora-a"></div>
+    <div class="aurora aurora-b"></div>
+
+    <main class="page container">
+      <section class="app-shell" data-reveal>
+        <header class="app-titlebar">
+          <div class="brand-wrap">
+            <span class="brand-dot"></span>
+            <span class="brand-name">UniCreate</span>
+            <span class="brand-version" id="release-version-chip">v...</span>
+          </div>
+          <a class="titlebar-link" href="https://github.com/drrakendu78/UniCreate" target="_blank" rel="noreferrer">GitHub</a>
+        </header>
+
+        <nav class="stepper" aria-label="Product workflow">
+          <span class="step done"><i>1</i>Installer</span>
+          <span class="step done"><i>2</i>Metadata</span>
+          <span class="step active"><i>3</i>Review</span>
+          <span class="step"><i>4</i>Submit</span>
+        </nav>
+
+        <div class="hero">
+          <p class="eyebrow" data-reveal>No YAML hand-editing required</p>
+          <h1 data-reveal>The modern WinGet manifest creator for real release workflows.</h1>
+          <p class="sub" data-reveal>
+            Build manifests from a clean GUI, package installers, compute checksums, and ship to
+            <code>microsoft/winget-pkgs</code> with faster feedback.
+          </p>
+
+          <div class="cta" data-reveal>
+            <a id="btn-setup" class="btn btn-main" href="https://github.com/drrakendu78/UniCreate/releases/latest" target="_blank" rel="noreferrer">Download Setup</a>
+            <a id="btn-portable" class="btn btn-soft" href="https://github.com/drrakendu78/UniCreate/releases/latest" target="_blank" rel="noreferrer">Download Portable</a>
+            <a id="btn-release" class="btn btn-ghost" href="https://github.com/drrakendu78/UniCreate/releases/latest" target="_blank" rel="noreferrer">Release Notes</a>
+          </div>
+
+          <div class="stats" data-reveal>
+            <article>
+              <p>Latest</p>
+              <strong id="release-version">Loading...</strong>
+            </article>
+            <article>
+              <p>Published</p>
+              <strong id="release-date">Loading...</strong>
+            </article>
+            <article>
+              <p>Downloads</p>
+              <strong id="release-downloads">Loading...</strong>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid two" id="features">
+        <article class="panel" data-reveal>
+          <h2>Core flow</h2>
+          <ul>
+            <li>Installer URL and hash flow with automatic defaults.</li>
+            <li>Metadata forms for default locale and optional locales.</li>
+            <li>Review step with editable generated YAML tabs.</li>
+            <li>Submit step integrated with GitHub auth and PR creation.</li>
+          </ul>
+        </article>
+
+        <article class="panel" data-reveal>
+          <h2>Live operations</h2>
+          <ul>
+            <li>Recover your recent UniCreate-created PRs from winget-pkgs.</li>
+            <li>Track PR state with clearer badges (Ready, Pending review, Behind, Needs action).</li>
+            <li>Build artifacts and checksums included in release process.</li>
+            <li>In-app update popup with silent Windows update flow.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="panel preview" data-reveal>
+        <div class="panel-head">
+          <h2>UniCreate UI</h2>
+          <span class="badge">Desktop preview</span>
+        </div>
+        <img src="./assets/unicreate-app.png" alt="UniCreate desktop app" loading="lazy" />
+      </section>
+
+      <section class="panel notes" data-reveal>
+        <div class="panel-head">
+          <h2>Latest patch notes</h2>
+          <span class="badge mono" id="release-tag">release</span>
+        </div>
+        <pre id="release-notes">Loading latest release notes...</pre>
+      </section>
+
+      <footer class="footer" data-reveal>
+        <p>Made by <a href="https://github.com/drrakendu78" target="_blank" rel="noreferrer">@drrakendu78</a></p>
+        <p><a href="https://github.com/drrakendu78/UniCreate/blob/master/PRIVACY.md" target="_blank" rel="noreferrer">Privacy</a> · MIT License</p>
+      </footer>
+    </main>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
