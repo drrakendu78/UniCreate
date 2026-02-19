@@ -1,0 +1,22 @@
+{
+  "name": "UniCreate",
+  "short_name": "UniCreate",
+  "description": "GUI-first WinGet manifest creator with release automation and PR workflow.",
+  "start_url": "/UniCreate/",
+  "scope": "/UniCreate/",
+  "display": "standalone",
+  "background_color": "#040a13",
+  "theme_color": "#040a13",
+  "icons": [
+    {
+      "src": "/UniCreate/assets/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/UniCreate/assets/favicon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    }
+  ]
+}

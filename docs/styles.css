@@ -1,16 +1,23 @@
-﻿:root {
-  --bg: #040a13;
-  --bg-soft: #071425;
-  --card: #0b1729;
-  --card-2: #0d1c31;
-  --line: #1a2c47;
-  --text: #e7edf7;
-  --muted: #8fa1bd;
-  --primary: #1d72ff;
-  --primary-soft: #153b77;
-  --ok: #1ea672;
-  --warn: #f59e0b;
-  --danger: #ef4444;
+:root {
+  /* UniCreate app dark palette */
+  --background: 228 14% 6%;
+  --foreground: 220 20% 95%;
+  --card: 225 14% 9%;
+  --card-soft: 225 12% 13%;
+  --primary: 217 92% 62%;
+  --muted-foreground: 220 10% 75%;
+  --border: 225 10% 13%;
+  --destructive: 0 70% 55%;
+  --ok: 160 84% 39%;
+
+  --bg: hsl(var(--background));
+  --text: hsl(var(--foreground));
+  --muted: hsl(var(--muted-foreground));
+  --line: hsl(var(--border));
+  --card-layer: hsl(var(--card));
+  --card-layer-2: hsl(var(--card-soft));
+  --primary-color: hsl(var(--primary));
+  --danger: hsl(var(--destructive));
   --shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
 }
 
@@ -25,9 +32,10 @@ body {
 }
 
 body {
-  background: radial-gradient(circle at 20% -10%, #0e2747 0%, transparent 50%),
-    radial-gradient(circle at 100% 0%, #0a4f5a 0%, transparent 35%),
-    linear-gradient(180deg, var(--bg) 0%, #030913 100%);
+  color-scheme: dark;
+  background: radial-gradient(circle at 20% -10%, hsl(var(--primary) / 0.26) 0%, transparent 50%),
+    radial-gradient(circle at 100% 0%, hsl(192 95% 42% / 0.2) 0%, transparent 35%),
+    linear-gradient(180deg, hsl(228 14% 7%) 0%, var(--bg) 100%);
   color: var(--text);
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
   overflow-x: hidden;
@@ -52,13 +60,13 @@ body {
 .aurora-a {
   top: -140px;
   left: -130px;
-  background: #176fce;
+  background: hsl(var(--primary));
 }
 
 .aurora-b {
   right: -150px;
   top: 120px;
-  background: #0da58f;
+  background: hsl(var(--ok));
 }
 
 .page {
@@ -72,7 +80,7 @@ body {
 .app-shell {
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: linear-gradient(180deg, #081325 0%, #060f1d 100%);
+  background: linear-gradient(180deg, hsl(226 16% 10%) 0%, hsl(var(--background)) 100%);
   box-shadow: var(--shadow);
   overflow: hidden;
 }
@@ -84,7 +92,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(4, 10, 19, 0.65);
+  background: hsl(var(--background) / 0.82);
 }
 
 .brand-wrap {
@@ -97,8 +105,8 @@ body {
   width: 9px;
   height: 9px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #10b981, #0ea5e9);
-  box-shadow: 0 0 12px rgba(14, 165, 233, 0.75);
+  background: linear-gradient(135deg, hsl(var(--ok)), hsl(var(--primary)));
+  box-shadow: 0 0 12px hsl(var(--primary) / 0.65);
 }
 
 .brand-name {
@@ -107,9 +115,9 @@ body {
 }
 
 .brand-version {
-  border: 1px solid #224364;
-  color: #9ec4ff;
-  background: #0d2240;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: hsl(var(--card-soft) / 0.9);
   border-radius: 999px;
   font-family: "IBM Plex Mono", monospace;
   font-size: 11px;
@@ -117,13 +125,13 @@ body {
 }
 
 .titlebar-link {
-  color: #9eb1cf;
+  color: var(--muted);
   text-decoration: none;
   font-size: 12px;
 }
 
 .titlebar-link:hover {
-  color: #d6e4ff;
+  color: var(--text);
 }
 
 .stepper {
@@ -131,12 +139,12 @@ body {
   gap: 8px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
-  background: rgba(8, 21, 38, 0.65);
+  background: hsl(226 16% 10% / 0.85);
   overflow-x: auto;
 }
 
 .step {
-  border: 1px solid #1e3555;
+  border: 1px solid var(--line);
   color: var(--muted);
   border-radius: 999px;
   font-size: 11px;
@@ -154,21 +162,21 @@ body {
   border-radius: 999px;
   display: inline-grid;
   place-items: center;
-  border: 1px solid #2b466a;
+  border: 1px solid var(--line);
   font-family: "IBM Plex Mono", monospace;
   font-size: 10px;
 }
 
 .step.done {
-  border-color: #1d5b56;
-  color: #85d7ca;
-  background: rgba(16, 185, 129, 0.08);
+  border-color: hsl(160 60% 26%);
+  color: hsl(160 74% 73%);
+  background: hsl(160 84% 39% / 0.1);
 }
 
 .step.active {
-  border-color: #2d63b8;
-  color: #dce8ff;
-  background: rgba(29, 114, 255, 0.16);
+  border-color: hsl(var(--primary) / 0.55);
+  color: hsl(var(--foreground));
+  background: hsl(var(--primary) / 0.18);
 }
 
 .hero {
@@ -182,7 +190,7 @@ body {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.11em;
-  color: #7db6ff;
+  color: hsl(var(--primary));
 }
 
 h1 {
@@ -202,9 +210,9 @@ h1 {
 
 .sub code {
   font-family: "IBM Plex Mono", monospace;
-  color: #d4e6ff;
-  background: rgba(21, 42, 73, 0.55);
-  border: 1px solid #234062;
+  color: hsl(var(--foreground));
+  background: hsl(var(--card-soft) / 0.78);
+  border: 1px solid var(--line);
   padding: 2px 5px;
   border-radius: 6px;
 }
@@ -230,20 +238,20 @@ h1 {
 }
 
 .btn-main {
-  color: white;
-  background: linear-gradient(135deg, #1d72ff, #0ea5e9);
+  color: hsl(var(--foreground));
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(204 94% 53%));
 }
 
 .btn-soft {
-  color: #c8dcff;
-  background: #10213a;
-  border-color: #23436e;
+  color: hsl(var(--foreground));
+  background: hsl(var(--card-soft));
+  border-color: var(--line);
 }
 
 .btn-ghost {
-  color: #9ab1d6;
+  color: var(--muted);
   background: transparent;
-  border-color: #253b5a;
+  border-color: var(--line);
 }
 
 .stats {
@@ -256,7 +264,7 @@ h1 {
 .stats article {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--card);
+  background: var(--card-layer);
   padding: 12px;
 }
 
@@ -283,7 +291,7 @@ h1 {
 .panel {
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: linear-gradient(180deg, var(--card) 0%, var(--card-2) 100%);
+  background: linear-gradient(180deg, var(--card-layer) 0%, var(--card-layer-2) 100%);
   padding: 18px;
 }
 
@@ -295,7 +303,7 @@ h1 {
 .panel ul {
   margin: 0;
   padding-left: 18px;
-  color: #b1c4de;
+  color: hsl(var(--muted-foreground));
   display: grid;
   gap: 10px;
   line-height: 1.45;
@@ -309,9 +317,9 @@ h1 {
 }
 
 .badge {
-  border: 1px solid #245986;
-  background: #123155;
-  color: #a7cfff;
+  border: 1px solid hsl(var(--primary) / 0.4);
+  background: hsl(var(--primary) / 0.18);
+  color: hsl(var(--foreground));
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -328,15 +336,15 @@ h1 {
   width: 100%;
   display: block;
   border-radius: 10px;
-  border: 1px solid #264b75;
-  background: #030712;
+  border: 1px solid var(--line);
+  background: var(--bg);
 }
 
 .notes pre {
   margin: 14px 0 0;
-  border: 1px solid #26405f;
-  background: #071224;
-  color: #bdd1ef;
+  border: 1px solid var(--line);
+  background: hsl(226 16% 10%);
+  color: hsl(var(--foreground));
   border-radius: 10px;
   padding: 13px;
   max-height: 320px;
@@ -352,12 +360,12 @@ h1 {
   justify-content: space-between;
   gap: 10px;
   font-size: 12px;
-  color: #8ca0be;
+  color: var(--muted);
   padding: 0 2px;
 }
 
 .footer a {
-  color: #b7d0fa;
+  color: hsl(var(--foreground));
   text-decoration: none;
 }
 
