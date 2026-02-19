@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useManifestStore } from "@/stores/manifest-store";
 import { useHistoryStore } from "@/stores/history-store";
 import { useToastStore } from "@/stores/toast-store";
+import { useAuthSessionStore } from "@/stores/auth-session-store";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-shell";
 import { cn } from "@/lib/utils";
@@ -15,11 +16,20 @@ export function StepSubmit() {
   const { manifest, generatedYaml, setStep, isSubmitting, setIsSubmitting, reset } = useManifestStore();
   const addSubmission = useHistoryStore((s) => s.addSubmission);
   const addToast = useToastStore((s) => s.addToast);
+  const {
+    activeSessionToken,
+    savedSessionUser,
+    hasSavedSession,
+    setSession,
+    clearSession,
+    touchEphemeralSession,
+    isEphemeralSessionExpired,
+  } = useAuthSessionStore();
 
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState(activeSessionToken ?? "");
   const [prUrl, setPrUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [githubUser, setGithubUser] = useState<string | null>(null);
+  const [githubUser, setGithubUser] = useState<string | null>(savedSessionUser ?? null);
   const [rememberToken, setRememberToken] = useState(false);
 
   // Device flow state
@@ -28,30 +38,103 @@ export function StepSubmit() {
   const [copied, setCopied] = useState(false);
   const pollingRef = useRef(false);
 
-  // Load stored token on mount
+  // Keep Submit in sync with the shared Home auth session.
   useEffect(() => {
+    let cancelled = false;
+
+    const syncSharedSession = async () => {
+      if (!activeSessionToken) {
+        setToken("");
+        setGithubUser(null);
+        return;
+      }
+
+      if (!hasSavedSession && isEphemeralSessionExpired()) {
+        clearSession();
+        if (!cancelled) {
+          setToken("");
+          setGithubUser(null);
+          addToast("Session locked for security. Please sign in again.", "info");
+        }
+        return;
+      }
+
+      setToken(activeSessionToken);
+      if (savedSessionUser) {
+        setGithubUser(savedSessionUser);
+        return;
+      }
+
+      try {
+        const user = await invoke<GitHubUser>("authenticate_github", { token: activeSessionToken });
+        if (cancelled) return;
+        setGithubUser(user.login);
+        setSession(activeSessionToken, user.login, hasSavedSession);
+      } catch {
+        if (cancelled) return;
+        setToken("");
+        setGithubUser(null);
+        await invoke("clear_github_token").catch(() => {});
+        clearSession();
+      }
+    };
+
+    void syncSharedSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeSessionToken,
+    savedSessionUser,
+    hasSavedSession,
+    isEphemeralSessionExpired,
+    clearSession,
+    setSession,
+    addToast,
+  ]);
+
+  // Fallback: load saved keychain token when no shared in-memory session exists.
+  useEffect(() => {
+    let mounted = true;
+    if (activeSessionToken) return;
+
     const loadToken = async () => {
       try {
         const stored = await invoke<string | null>("get_github_token");
-        if (stored) {
-          setToken(stored);
-          setRememberToken(true);
-          // Verify stored token is still valid
-          try {
-            const user = await invoke<GitHubUser>("authenticate_github", { token: stored });
-            setGithubUser(user.login);
-          } catch {
-            // Token expired/revoked, clear it
-            setToken("");
-            await invoke("clear_github_token").catch(() => {});
-          }
+        if (!mounted || !stored) return;
+
+        setToken(stored);
+        setRememberToken(true);
+        setSession(stored, null, true);
+
+        try {
+          const user = await invoke<GitHubUser>("authenticate_github", { token: stored });
+          if (!mounted) return;
+          setGithubUser(user.login);
+          setSession(stored, user.login, true);
+        } catch {
+          if (!mounted) return;
+          setToken("");
+          setGithubUser(null);
+          await invoke("clear_github_token").catch(() => {});
+          clearSession();
         }
       } catch {
         // Keyring not available
       }
     };
-    loadToken();
-  }, []);
+
+    void loadToken();
+    return () => {
+      mounted = false;
+    };
+  }, [activeSessionToken, setSession, clearSession]);
+
+  useEffect(() => {
+    if (hasSavedSession) {
+      setRememberToken(true);
+    }
+  }, [hasSavedSession]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -92,13 +175,20 @@ export function StepSubmit() {
         // Get user info
         const user = await invoke<GitHubUser>("authenticate_github", { token: accessToken });
         setGithubUser(user.login);
+        setSession(accessToken, user.login, false);
 
         // Store token if remember is checked
         if (rememberToken) {
-          await invoke("store_github_token", { token: accessToken }).catch(() => {});
+          const stored = await invoke("store_github_token", { token: accessToken })
+            .then(() => true)
+            .catch(() => false);
+          setSession(accessToken, user.login, stored);
+          if (!stored) {
+            addToast("Connected for this session only (could not persist token).", "info");
+          }
         }
 
-        addToast(`Connecté en tant que ${user.login}`, "success");
+        addToast(`Connected as ${user.login}`, "success");
         return;
       } catch (e) {
         const err = String(e);
@@ -130,15 +220,27 @@ export function StepSubmit() {
     setToken("");
     setGithubUser(null);
     await invoke("clear_github_token").catch(() => {});
-    addToast("Déconnecté", "info");
+    clearSession();
+    addToast("Session disconnected.", "info");
   };
 
   const handleSubmit = async () => {
+    const trimmedToken = token.trim();
+    if (!trimmedToken) {
+      setError("No active GitHub session.");
+      addToast("Please sign in with GitHub first.", "info");
+      return;
+    }
+
+    if (!hasSavedSession) {
+      touchEphemeralSession();
+    }
+
     setIsSubmitting(true);
     setError(null);
     try {
       const url = await invoke<string>("submit_manifest", {
-        token: token.trim(),
+        token: trimmedToken,
         yamlFiles: generatedYaml,
         packageId: manifest.packageIdentifier,
         version: manifest.packageVersion,
@@ -151,10 +253,20 @@ export function StepSubmit() {
         date: new Date().toISOString(),
         user: githubUser || "",
       });
-      addToast("Pull request créée avec succès !", "success");
+      addToast("Pull request created successfully.", "success");
     } catch (e) {
-      setError(String(e));
-      addToast("Échec de la création de la pull request", "error");
+      const message = String(e);
+      setError(message);
+
+      if (/(invalid token|http 401|401)/i.test(message)) {
+        await invoke("clear_github_token").catch(() => {});
+        clearSession();
+        setToken("");
+        setGithubUser(null);
+        addToast("Session expired. Please sign in again.", "info");
+      } else {
+        addToast("Failed to create pull request.", "error");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -176,7 +288,7 @@ export function StepSubmit() {
             className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-[13px] font-medium text-white transition-all hover:brightness-110">
             <ExternalLink className="h-3.5 w-3.5" />View on GitHub
           </a>
-          <button onClick={() => { reset(); setPrUrl(null); setToken(""); setGithubUser(null); }}
+          <button onClick={() => { reset(); setPrUrl(null); }}
             className="flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <RotateCcw className="h-3.5 w-3.5" />New Manifest
           </button>
@@ -323,3 +435,6 @@ export function StepSubmit() {
     </div>
   );
 }
+
+export default StepSubmit;
+

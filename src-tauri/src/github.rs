@@ -14,6 +14,50 @@ pub struct GitHubUser {
     pub avatar_url: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RecoveredPr {
+    pub pr_url: String,
+    pub title: String,
+    pub created_at: String,
+    pub user_login: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PrLiveStatus {
+    pub pr_url: String,
+    pub status: String,
+    pub has_issues: bool,
+    pub mergeable_state: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SearchIssuesResponse {
+    items: Vec<SearchIssueItem>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SearchIssueItem {
+    html_url: String,
+    title: String,
+    created_at: String,
+    user: SearchIssueUser,
+    pull_request: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SearchIssueUser {
+    login: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PullStatusResponse {
+    state: String,
+    merged_at: Option<String>,
+    draft: Option<bool>,
+    mergeable_state: Option<String>,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct ForkResult {
@@ -134,6 +178,18 @@ struct GitHubRelease {
     tag_name: String,
     body: Option<String>,
     html_url: String,
+    published_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AppUpdateInfo {
+    pub current_version: String,
+    pub latest_version: String,
+    pub has_update: bool,
+    pub release_notes: Option<String>,
+    pub release_url: String,
+    pub published_at: Option<String>,
 }
 
 /// Extract owner/repo from a GitHub URL (releases, raw, etc.)
@@ -170,6 +226,73 @@ fn parse_github_url(url: &str) -> Option<(String, String, Option<String>)> {
 fn clean_version(tag: &str) -> String {
     let v = tag.strip_prefix('v').unwrap_or(tag);
     v.strip_prefix('V').unwrap_or(v).to_string()
+}
+
+fn parse_version_parts(version: &str) -> Vec<u32> {
+    let clean = clean_version(version)
+        .split('-')
+        .next()
+        .unwrap_or("")
+        .split('+')
+        .next()
+        .unwrap_or("");
+
+    clean
+        .split('.')
+        .map(|part| {
+            let digits: String = part.chars().take_while(|c| c.is_ascii_digit()).collect();
+            digits.parse::<u32>().unwrap_or(0)
+        })
+        .collect()
+}
+
+fn is_newer_version(latest: &str, current: &str) -> bool {
+    let latest_parts = parse_version_parts(latest);
+    let current_parts = parse_version_parts(current);
+    let max_len = latest_parts.len().max(current_parts.len());
+
+    for idx in 0..max_len {
+        let l = *latest_parts.get(idx).unwrap_or(&0);
+        let c = *current_parts.get(idx).unwrap_or(&0);
+        if l > c {
+            return true;
+        }
+        if l < c {
+            return false;
+        }
+    }
+
+    false
+}
+
+pub async fn check_app_update() -> Result<AppUpdateInfo, String> {
+    let client = reqwest::Client::new();
+    let mut headers = HeaderMap::new();
+    headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.github.v3+json"));
+    headers.insert(USER_AGENT, HeaderValue::from_static("UniCreate/1.0"));
+
+    let release: GitHubRelease = client
+        .get("https://api.github.com/repos/drrakendu78/UniCreate/releases/latest")
+        .headers(headers)
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?
+        .json()
+        .await
+        .map_err(|e| format!("Parse error: {}", e))?;
+
+    let current = env!("CARGO_PKG_VERSION").to_string();
+    let latest = clean_version(&release.tag_name);
+    let has_update = is_newer_version(&latest, &current);
+
+    Ok(AppUpdateInfo {
+        current_version: current,
+        latest_version: latest,
+        has_update,
+        release_notes: release.body,
+        release_url: release.html_url,
+        published_at: release.published_at,
+    })
 }
 
 pub async fn fetch_repo_metadata(url: &str) -> Result<RepoMetadata, String> {
@@ -455,18 +578,194 @@ pub async fn check_package_exists(package_id: &str) -> Result<bool, String> {
     Ok(resp.status().is_success())
 }
 
-fn build_headers(token: &str) -> HeaderMap {
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        AUTHORIZATION,
-        HeaderValue::from_str(&format!("Bearer {}", token)).unwrap(),
+fn parse_github_pr_url(pr_url: &str) -> Option<(String, String, u64)> {
+    let clean = pr_url.trim().trim_end_matches('/');
+    let parts: Vec<&str> = clean.split('/').collect();
+    if parts.len() < 7 {
+        return None;
+    }
+    if !parts[2].contains("github.com") || parts[5] != "pull" {
+        return None;
+    }
+    let owner = parts[3].to_string();
+    let repo = parts[4].to_string();
+    let number = parts[6].split('?').next()?.parse::<u64>().ok()?;
+    Some((owner, repo, number))
+}
+
+fn has_pr_issues(status: &str, draft: bool, mergeable_state: Option<&str>) -> bool {
+    if status == "merged" {
+        return false;
+    }
+    if status == "closed" {
+        return true;
+    }
+    if draft {
+        return true;
+    }
+    matches!(
+        mergeable_state,
+        Some("dirty" | "blocked" | "behind" | "unstable" | "draft")
+    )
+}
+
+pub async fn fetch_pr_statuses(
+    pr_urls: &[String],
+    token: Option<&str>,
+) -> Result<Vec<PrLiveStatus>, String> {
+    let client = reqwest::Client::new();
+    let token_owned = token
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty());
+
+    let mut result = Vec::with_capacity(pr_urls.len());
+
+    for pr_url in pr_urls {
+        let mut item = PrLiveStatus {
+            pr_url: pr_url.clone(),
+            status: "unknown".to_string(),
+            has_issues: true,
+            mergeable_state: None,
+        };
+
+        let Some((owner, repo, number)) = parse_github_pr_url(pr_url) else {
+            item.mergeable_state = Some("invalid-url".to_string());
+            result.push(item);
+            continue;
+        };
+
+        let endpoint = format!(
+            "https://api.github.com/repos/{}/{}/pulls/{}",
+            owner, repo, number
+        );
+
+        let mut pull_data: Option<PullStatusResponse> = None;
+        let attempts: Vec<Option<&str>> = if let Some(token_value) = token_owned.as_deref() {
+            vec![Some(token_value), None]
+        } else {
+            vec![None]
+        };
+
+        for auth in attempts {
+            let response = client
+                .get(&endpoint)
+                .headers(build_headers_optional(auth))
+                .send()
+                .await;
+
+            let Ok(resp) = response else {
+                continue;
+            };
+
+            if resp.status().is_success() {
+                if let Ok(parsed) = resp.json::<PullStatusResponse>().await {
+                    pull_data = Some(parsed);
+                }
+                break;
+            }
+
+            if auth.is_some()
+                && (resp.status() == reqwest::StatusCode::UNAUTHORIZED
+                    || resp.status() == reqwest::StatusCode::FORBIDDEN)
+            {
+                continue;
+            }
+
+            break;
+        }
+
+        if let Some(pr) = pull_data {
+            let status = if pr.merged_at.is_some() {
+                "merged"
+            } else if pr.state == "open" {
+                "open"
+            } else if pr.state == "closed" {
+                "closed"
+            } else {
+                "unknown"
+            };
+
+            let draft = pr.draft.unwrap_or(false);
+            let mergeable_state = pr.mergeable_state.clone();
+
+            item.status = status.to_string();
+            item.has_issues = has_pr_issues(status, draft, mergeable_state.as_deref());
+            item.mergeable_state = mergeable_state;
+        }
+
+        result.push(item);
+    }
+
+    Ok(result)
+}
+
+pub async fn fetch_unicreate_recent_prs(token: &str, limit: Option<u32>) -> Result<Vec<RecoveredPr>, String> {
+    let client = reqwest::Client::new();
+    let headers = build_headers(token);
+    let user = authenticate_github(token).await?;
+    let per_page = limit.unwrap_or(10).clamp(1, 30);
+    let query = format!(
+        "repo:microsoft/winget-pkgs is:pr author:{} \"Created with [UniCreate]\"",
+        user.login
     );
+    let mut url = reqwest::Url::parse("https://api.github.com/search/issues")
+        .map_err(|e| format!("URL parse failed: {}", e))?;
+    {
+        let mut pairs = url.query_pairs_mut();
+        pairs.append_pair("q", &query);
+        pairs.append_pair("sort", "created");
+        pairs.append_pair("order", "desc");
+        pairs.append_pair("per_page", &per_page.to_string());
+    }
+
+    let resp = client
+        .get(url)
+        .headers(headers)
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("GitHub search failed (HTTP {}): {}", status, body));
+    }
+
+    let search: SearchIssuesResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("Parse error: {}", e))?;
+
+    Ok(search
+        .items
+        .into_iter()
+        .filter(|item| item.pull_request.is_some())
+        .map(|item| RecoveredPr {
+            pr_url: item.html_url,
+            title: item.title,
+            created_at: item.created_at,
+            user_login: item.user.login,
+        })
+        .collect())
+}
+
+fn build_headers_optional(token: Option<&str>) -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    if let Some(token) = token {
+        if let Ok(value) = HeaderValue::from_str(&format!("Bearer {}", token.trim())) {
+            headers.insert(AUTHORIZATION, value);
+        }
+    }
     headers.insert(
         ACCEPT,
         HeaderValue::from_static("application/vnd.github.v3+json"),
     );
     headers.insert(USER_AGENT, HeaderValue::from_static("UniCreate/1.0"));
     headers
+}
+
+fn build_headers(token: &str) -> HeaderMap {
+    build_headers_optional(Some(token))
 }
 
 // ── Device Flow ───────────────────────────────────────────
@@ -566,6 +865,9 @@ pub async fn poll_device_flow(device_code: &str) -> Result<String, String> {
 // ── PAT Auth (kept for backward compat) ──────────────────
 
 pub async fn authenticate_github(token: &str) -> Result<GitHubUser, String> {
+    if token.trim().is_empty() {
+        return Err("Missing token".to_string());
+    }
     let client = reqwest::Client::new();
     let resp = client
         .get("https://api.github.com/user")

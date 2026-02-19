@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+const MANIFEST_SCHEMA_VERSION: &str = "1.9.0";
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManifestData {
@@ -79,14 +81,25 @@ fn opt_field(key: &str, value: &Option<String>) -> String {
     }
 }
 
+fn schema_header(manifest_kind: &str) -> String {
+    format!(
+        "# yaml-language-server: $schema=https://aka.ms/winget-manifest.{}.{}.schema.json\n\n",
+        manifest_kind, MANIFEST_SCHEMA_VERSION
+    )
+}
+
 fn generate_version_yaml(m: &ManifestData) -> YamlFile {
     let content = format!(
-        "PackageIdentifier: \"{}\"\n\
+        "{}PackageIdentifier: \"{}\"\n\
          PackageVersion: \"{}\"\n\
          DefaultLocale: \"{}\"\n\
          ManifestType: \"version\"\n\
-         ManifestVersion: \"1.9.0\"\n",
-        m.package_identifier, m.package_version, m.default_locale
+         ManifestVersion: \"{}\"\n",
+        schema_header("version"),
+        m.package_identifier,
+        m.package_version,
+        m.default_locale,
+        MANIFEST_SCHEMA_VERSION
     );
     YamlFile {
         file_name: format!("{}.yaml", m.package_identifier),
@@ -96,9 +109,11 @@ fn generate_version_yaml(m: &ManifestData) -> YamlFile {
 
 fn generate_installer_yaml(m: &ManifestData) -> YamlFile {
     let mut content = format!(
-        "PackageIdentifier: \"{}\"\n\
+        "{}PackageIdentifier: \"{}\"\n\
          PackageVersion: \"{}\"\n",
-        m.package_identifier, m.package_version
+        schema_header("installer"),
+        m.package_identifier,
+        m.package_version
     );
 
     if let Some(ref os) = m.minimum_os_version {
@@ -148,26 +163,44 @@ fn generate_installer_yaml(m: &ManifestData) -> YamlFile {
                 }
             }
         }
-        if let Some(ref switches) = inst.installer_switches {
-            let mut sw = String::new();
-            if let Some(ref v) = switches.silent {
-                if !v.is_empty() { sw.push_str(&format!("    Silent: \"{}\"\n", v)); }
+        let is_exe = inst.installer_type.eq_ignore_ascii_case("exe");
+        let silent = inst
+            .installer_switches
+            .as_ref()
+            .and_then(|s| s.silent.as_ref())
+            .filter(|v| !v.is_empty())
+            .cloned()
+            .or_else(|| if is_exe { Some("/S".to_string()) } else { None });
+        let silent_with_progress = inst
+            .installer_switches
+            .as_ref()
+            .and_then(|s| s.silent_with_progress.as_ref())
+            .filter(|v| !v.is_empty())
+            .cloned()
+            .or_else(|| if is_exe { Some("/S".to_string()) } else { None });
+        let custom = inst
+            .installer_switches
+            .as_ref()
+            .and_then(|s| s.custom.as_ref())
+            .filter(|v| !v.is_empty())
+            .cloned();
+
+        if silent.is_some() || silent_with_progress.is_some() || custom.is_some() {
+            content.push_str("  InstallerSwitches:\n");
+            if let Some(v) = silent {
+                content.push_str(&format!("    Silent: \"{}\"\n", v));
             }
-            if let Some(ref v) = switches.silent_with_progress {
-                if !v.is_empty() { sw.push_str(&format!("    SilentWithProgress: \"{}\"\n", v)); }
+            if let Some(v) = silent_with_progress {
+                content.push_str(&format!("    SilentWithProgress: \"{}\"\n", v));
             }
-            if let Some(ref v) = switches.custom {
-                if !v.is_empty() { sw.push_str(&format!("    Custom: \"{}\"\n", v)); }
-            }
-            if !sw.is_empty() {
-                content.push_str("  InstallerSwitches:\n");
-                content.push_str(&sw);
+            if let Some(v) = custom {
+                content.push_str(&format!("    Custom: \"{}\"\n", v));
             }
         }
     }
 
     content.push_str("ManifestType: \"installer\"\n");
-    content.push_str("ManifestVersion: \"1.9.0\"\n");
+    content.push_str(&format!("ManifestVersion: \"{}\"\n", MANIFEST_SCHEMA_VERSION));
 
     YamlFile {
         file_name: format!("{}.installer.yaml", m.package_identifier),
@@ -178,11 +211,15 @@ fn generate_installer_yaml(m: &ManifestData) -> YamlFile {
 fn generate_locale_yaml(m: &ManifestData) -> YamlFile {
     let l = &m.locale;
     let mut content = format!(
-        "PackageIdentifier: \"{}\"\n\
+        "{}PackageIdentifier: \"{}\"\n\
          PackageVersion: \"{}\"\n\
          PackageLocale: \"{}\"\n\
          Publisher: \"{}\"\n",
-        m.package_identifier, m.package_version, l.package_locale, l.publisher
+        schema_header("defaultLocale"),
+        m.package_identifier,
+        m.package_version,
+        l.package_locale,
+        l.publisher
     );
 
     content.push_str(&opt_field("PublisherUrl", &l.publisher_url));
@@ -211,7 +248,7 @@ fn generate_locale_yaml(m: &ManifestData) -> YamlFile {
     content.push_str(&opt_field("ReleaseNotes", &l.release_notes));
     content.push_str(&opt_field("ReleaseNotesUrl", &l.release_notes_url));
     content.push_str("ManifestType: \"defaultLocale\"\n");
-    content.push_str("ManifestVersion: \"1.9.0\"\n");
+    content.push_str(&format!("ManifestVersion: \"{}\"\n", MANIFEST_SCHEMA_VERSION));
 
     YamlFile {
         file_name: format!(
@@ -224,11 +261,15 @@ fn generate_locale_yaml(m: &ManifestData) -> YamlFile {
 
 fn generate_additional_locale_yaml(m: &ManifestData, l: &LocaleData) -> YamlFile {
     let mut content = format!(
-        "PackageIdentifier: \"{}\"\n\
+        "{}PackageIdentifier: \"{}\"\n\
          PackageVersion: \"{}\"\n\
          PackageLocale: \"{}\"\n\
          Publisher: \"{}\"\n",
-        m.package_identifier, m.package_version, l.package_locale, l.publisher
+        schema_header("locale"),
+        m.package_identifier,
+        m.package_version,
+        l.package_locale,
+        l.publisher
     );
 
     content.push_str(&opt_field("PublisherUrl", &l.publisher_url));
@@ -256,7 +297,7 @@ fn generate_additional_locale_yaml(m: &ManifestData, l: &LocaleData) -> YamlFile
     content.push_str(&opt_field("ReleaseNotes", &l.release_notes));
     content.push_str(&opt_field("ReleaseNotesUrl", &l.release_notes_url));
     content.push_str("ManifestType: \"locale\"\n");
-    content.push_str("ManifestVersion: \"1.9.0\"\n");
+    content.push_str(&format!("ManifestVersion: \"{}\"\n", MANIFEST_SCHEMA_VERSION));
 
     YamlFile {
         file_name: format!(

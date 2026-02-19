@@ -136,6 +136,22 @@ export interface ExistingManifest {
   packageLocale: string;
 }
 
+export interface RecoveredPr {
+  pr_url: string;
+  title: string;
+  created_at: string;
+  user_login: string;
+}
+
+export type PrLiveState = "open" | "merged" | "closed" | "unknown";
+
+export interface PrLiveStatus {
+  prUrl: string;
+  status: PrLiveState;
+  hasIssues: boolean;
+  mergeableState: string | null;
+}
+
 export interface SubmissionEntry {
   packageId: string;
   version: string;

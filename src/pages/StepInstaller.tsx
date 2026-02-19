@@ -44,9 +44,9 @@ export function StepInstaller() {
       try {
         const appWindow = getCurrentWebviewWindow();
         unlisten = await appWindow.onDragDropEvent((event) => {
-          if (event.payload.type === "hover") {
+          if (event.payload.type === "enter" || event.payload.type === "over") {
             setIsDragging(true);
-          } else if (event.payload.type === "cancel") {
+          } else if (event.payload.type === "leave") {
             setIsDragging(false);
           } else if (event.payload.type === "drop") {
             setIsDragging(false);

@@ -143,9 +143,11 @@ export function StepReview() {
         </div>
 
         {/* Code */}
-        <div className="bg-[hsl(228,14%,7%)] p-5 overflow-x-auto">
+        <div className="bg-[hsl(210,40%,98%)] dark:bg-[hsl(228,14%,7%)] p-5 overflow-x-auto">
           <pre className="text-[12px] leading-[1.7] font-mono">
-            <code className="text-foreground">{generatedYaml[activeTab]?.content}</code>
+            <code className="text-[hsl(222.2,84%,4.9%)] dark:text-[hsl(220,20%,95%)]">
+              {generatedYaml[activeTab]?.content}
+            </code>
           </pre>
         </div>
       </div>

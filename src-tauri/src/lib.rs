@@ -91,6 +91,22 @@ async fn authenticate_github(token: String) -> Result<github::GitHubUser, String
 }
 
 #[tauri::command]
+async fn fetch_unicreate_recent_prs(
+    token: String,
+    limit: Option<u32>,
+) -> Result<Vec<github::RecoveredPr>, String> {
+    github::fetch_unicreate_recent_prs(&token, limit).await
+}
+
+#[tauri::command]
+async fn fetch_pr_statuses(
+    pr_urls: Vec<String>,
+    token: Option<String>,
+) -> Result<Vec<github::PrLiveStatus>, String> {
+    github::fetch_pr_statuses(&pr_urls, token.as_deref()).await
+}
+
+#[tauri::command]
 async fn submit_manifest(
     token: String,
     yaml_files: Vec<YamlFile>,
@@ -146,6 +162,8 @@ pub fn run() {
             start_device_flow,
             poll_device_flow,
             authenticate_github,
+            fetch_unicreate_recent_prs,
+            fetch_pr_statuses,
             submit_manifest,
             store_github_token,
             get_github_token,
