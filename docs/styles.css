@@ -225,6 +225,63 @@ h1 {
   gap: 8px;
 }
 
+.winget-teaser {
+  margin-top: 12px;
+  border: 1px solid hsl(var(--line-soft));
+  border-radius: 10px;
+  background: hsl(var(--surface-2) / 0.7);
+  padding: 10px;
+  display: grid;
+  gap: 7px;
+}
+
+.winget-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.winget-soon {
+  border-radius: 999px;
+  border: 1px solid hsl(var(--line));
+  background: hsl(var(--surface-3));
+  color: hsl(38 90% 72%);
+  padding: 4px 8px;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.winget-label {
+  color: hsl(var(--text-soft));
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.winget-command {
+  display: block;
+  border: 1px dashed hsl(var(--line-focus) / 0.45);
+  border-radius: 8px;
+  background: hsl(var(--surface) / 0.9);
+  padding: 7px 9px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  color: hsl(210 86% 84%);
+}
+
+.winget-teaser p {
+  margin: 0;
+  font-size: 12px;
+  color: hsl(var(--text-soft));
+}
+
+.winget-teaser p code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: hsl(210 70% 80%);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
