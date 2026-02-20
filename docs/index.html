@@ -6,7 +6,7 @@
     <title>UniCreate | WinGet manifest creator</title>
     <meta
       name="description"
-      content="UniCreate is a desktop-first WinGet manifest creator with PR workflow and release automation."
+      content="Create and submit winget-pkgs manifests with a clean GUI. Hashing, validation, PR submit, and live status."
     />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta name="author" content="Drrakendu78" />
@@ -20,7 +20,7 @@
     <meta property="og:title" content="UniCreate | WinGet manifest creator" />
     <meta
       property="og:description"
-      content="Build, review, and submit WinGet manifests with a desktop-grade UI and automated release flow."
+      content="Create and submit winget-pkgs manifests with a clean GUI. Hashing, validation, PR submit, and live status."
     />
     <meta property="og:url" content="https://drrakendu78.github.io/UniCreate/" />
     <meta property="og:image" content="https://drrakendu78.github.io/UniCreate/assets/unicreate-app.png" />
@@ -30,7 +30,7 @@
     <meta name="twitter:title" content="UniCreate | WinGet manifest creator" />
     <meta
       name="twitter:description"
-      content="Desktop-first WinGet manifest tooling with release automation and PR status tracking."
+      content="Create and submit winget-pkgs manifests with a clean GUI. Hashing, validation, PR submit, and live status."
     />
     <meta name="twitter:image" content="https://drrakendu78.github.io/UniCreate/assets/unicreate-app.png" />
 
@@ -38,7 +38,6 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="128x128" href="./assets/favicon-128x128.png" />
     <link rel="apple-touch-icon" sizes="128x128" href="./assets/apple-touch-icon.png" />
-    <link rel="manifest" href="./site.webmanifest" />
 
     <script type="application/ld+json">
       {
@@ -77,14 +76,20 @@
           <span class="version-pill mono" id="release-version-chip">v...</span>
         </div>
 
-        <div class="app-steps" aria-label="Workflow steps">
-          <span class="step-pill done">1 Installer</span>
-          <span class="step-pill done">2 Metadata</span>
-          <span class="step-pill active">3 Review</span>
-          <span class="step-pill">4 Submit</span>
+        <div class="app-steps" id="primary-nav" aria-label="Quick navigation">
+          <a class="step-pill nav-overview is-current" href="#overview">Overview</a>
+          <a class="step-pill nav-release" href="#release">Release</a>
+          <a class="step-pill nav-features" href="#features">Core flow</a>
+          <a class="step-pill nav-workflow" href="#workflow">Workflow</a>
+          <a class="step-pill nav-notes" href="#notes">Release notes</a>
         </div>
 
         <div class="top-actions">
+          <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Open navigation" aria-controls="primary-nav" aria-expanded="false">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
           <span class="led-cluster" aria-hidden="true">
             <span class="led-dot led-dot-live"></span>
             <span class="led-dot led-dot-blue"></span>
@@ -94,8 +99,8 @@
         </div>
       </header>
 
-      <section class="app-frame hero-panel" data-reveal>
-        <div class="hero-copy">
+      <section id="overview" class="hero-panel" data-reveal>
+        <div class="hero-copy app-frame">
           <p class="eyebrow">NO YAML HAND-EDITING REQUIRED</p>
           <h1>The modern WinGet manifest creator for real release workflows.</h1>
           <p class="hero-lead">
@@ -103,7 +108,7 @@
             and ship to <code>microsoft/winget-pkgs</code> with faster feedback.
           </p>
           <p class="hero-proof">
-            <span>Same pipeline, same standards:</span> UniCreate releases itself.
+            <span>Same pipeline, same standards:</span> UniCreate releases itself via GitHub Releases + updater.
           </p>
 
           <div class="hero-actions">
@@ -133,13 +138,26 @@
             >
           </div>
 
-          <div class="winget-teaser" aria-label="WinGet command coming soon">
-            <div class="winget-head">
-              <span class="winget-soon mono">Coming soon</span>
-              <span class="winget-label mono">WinGet install command</span>
+          <div class="winget-teaser" id="winget-teaser" aria-label="WinGet package status">
+            <div class="winget-top">
+              <div class="winget-head">
+                <span class="winget-state mono winget-state-review" id="winget-state-badge">Checking...</span>
+                <span class="winget-label mono" id="winget-state-label">WinGet package status</span>
+                <div class="winget-pr-badges" id="winget-pr-badges" aria-label="PR labels">
+                  <span class="winget-pr-badge winget-pr-badge-muted">Loading PR labels...</span>
+                </div>
+              </div>
+              <a
+                class="winget-link mono"
+                id="winget-pr-link"
+                href="https://github.com/microsoft/winget-pkgs/pull/340948"
+                target="_blank"
+                rel="noreferrer"
+                >Open PR</a
+              >
             </div>
-            <code class="winget-command winget-command-soon">Coming soon</code>
-            <p>Merge is in progress in <code>winget-pkgs</code>. WinGet install will be available once it is merged.</p>
+            <code class="winget-command" id="winget-command">Checking winget-pkgs status...</code>
+            <p id="winget-status-text">Loading PR status and merge state from <code>winget-pkgs</code>...</p>
           </div>
 
           <dl class="hero-stats" aria-label="Release metrics">
@@ -158,40 +176,132 @@
           </dl>
         </div>
 
-        <aside class="release-box" id="release">
-          <div class="section-head">
-            <h2>Release payload</h2>
-            <div class="head-right">
-              <span class="led-cluster" aria-hidden="true">
-                <span class="led-dot led-dot-live"></span>
-                <span class="led-dot led-dot-blue"></span>
-              </span>
-              <span class="version-pill mono" id="release-tag">release</span>
+        <div class="hero-side">
+          <aside class="release-box" id="release">
+            <div class="section-head">
+              <h2>Release payload</h2>
+              <div class="head-right">
+                <span class="led-cluster" aria-hidden="true">
+                  <span class="led-dot led-dot-live"></span>
+                  <span class="led-dot led-dot-blue"></span>
+                </span>
+                <span class="version-pill mono" id="release-tag">release</span>
+              </div>
             </div>
-          </div>
 
-          <ul class="asset-list">
-            <li>
-              <span>Setup .exe</span>
-              <a id="asset-setup" href="https://github.com/drrakendu78/UniCreate/releases/latest" target="_blank" rel="noreferrer">Loading...</a>
-            </li>
-            <li>
-              <span>MSI package</span>
-              <a id="asset-msi" href="https://github.com/drrakendu78/UniCreate/releases/latest" target="_blank" rel="noreferrer">Loading...</a>
-            </li>
-            <li>
-              <span>Portable .exe</span>
-              <a id="asset-portable" href="https://github.com/drrakendu78/UniCreate/releases/latest" target="_blank" rel="noreferrer">Loading...</a>
-            </li>
-          </ul>
+            <ul class="asset-list">
+              <li>
+                <span>Setup .exe</span>
+                <a id="asset-setup" href="https://github.com/drrakendu78/UniCreate/releases/latest" target="_blank" rel="noreferrer">Loading...</a>
+              </li>
+              <li>
+                <span>MSI package</span>
+                <a id="asset-msi" href="https://github.com/drrakendu78/UniCreate/releases/latest" target="_blank" rel="noreferrer">Loading...</a>
+              </li>
+              <li>
+                <span>Portable .exe</span>
+                <a id="asset-portable" href="https://github.com/drrakendu78/UniCreate/releases/latest" target="_blank" rel="noreferrer">Loading...</a>
+              </li>
+            </ul>
 
-          <div class="status-row" aria-label="Flow status">
-            <span class="status-chip ok">Installer</span>
-            <span class="status-chip ok">Metadata</span>
-            <span class="status-chip live">Review</span>
-            <span class="status-chip muted">Submit</span>
+            <div class="status-row" aria-label="Flow status">
+              <span class="status-chip ok">Installer</span>
+              <span class="status-chip ok">Metadata</span>
+              <span class="status-chip live">Review</span>
+              <span class="status-chip muted">Submit</span>
+            </div>
+          </aside>
+
+          <aside class="app-frame hero-widget" aria-label="Release widget">
+            <div class="section-head">
+              <h2>Quick actions</h2>
+              <span class="status-chip muted">Quick panel</span>
+            </div>
+            <ul class="widget-list">
+              <li>
+                <div class="widget-meta">
+                  <span>Latest release</span>
+                  <strong id="widget-release-tag">v...</strong>
+                </div>
+                <a class="widget-action" id="widget-release-link" href="https://github.com/drrakendu78/UniCreate/releases/latest" target="_blank" rel="noreferrer">Open</a>
+              </li>
+              <li>
+                <div class="widget-meta">
+                  <span>WinGet PR</span>
+                  <strong id="widget-pr-ref">#340948</strong>
+                </div>
+                <a class="widget-action" id="widget-pr-link" href="https://github.com/microsoft/winget-pkgs/pull/340948" target="_blank" rel="noreferrer">Open</a>
+              </li>
+              <li>
+                <div class="widget-meta">
+                  <span>Repository</span>
+                  <strong>drrakendu78/UniCreate</strong>
+                </div>
+                <a class="widget-action" href="https://github.com/drrakendu78/UniCreate" target="_blank" rel="noreferrer">Open</a>
+              </li>
+            </ul>
+          </aside>
+        </div>
+      </section>
+
+      <section id="preview" class="app-frame screenshot-panel" data-reveal>
+        <div class="section-head">
+          <h2>UniCreate UI</h2>
+          <div class="head-right">
+            <span class="led-cluster" aria-hidden="true">
+              <span class="led-dot led-dot-live"></span>
+            </span>
+            <span class="status-chip live">Desktop preview</span>
           </div>
-        </aside>
+        </div>
+
+        <div class="screenshot-wrap">
+          <video
+            controls
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            poster="./assets/unicreate-app.png"
+            aria-label="UniCreate demonstration video"
+          >
+            <source src="./assets/video.mp4" type="video/mp4" />
+            Your browser does not support HTML5 video.
+          </video>
+          <div class="video-watermark" aria-hidden="true">
+            <img src="./assets/favicon-32x32.png" alt="" />
+            <span>UniCreate</span>
+          </div>
+        </div>
+        <p class="video-credit">Video created with FocusSee.</p>
+      </section>
+
+      <section class="app-frame trust-panel" data-reveal>
+        <div class="section-head">
+          <h2>Compliance signals</h2>
+          <div class="head-right">
+            <span class="led-cluster" aria-hidden="true">
+              <span class="led-dot led-dot-live"></span>
+              <span class="led-dot led-dot-blue"></span>
+            </span>
+            <span class="status-chip ok">Official workflow</span>
+          </div>
+        </div>
+        <div class="trust-grid">
+          <article class="trust-card">
+            <h3>WinGet schema v1.9.0</h3>
+            <p>Generated manifests include compliant schema headers and stable defaults.</p>
+          </article>
+          <article class="trust-card">
+            <h3>winget-pkgs workflow</h3>
+            <p>Submission flow follows the microsoft/winget-pkgs process from creation to validation.</p>
+          </article>
+          <article class="trust-card">
+            <h3>Release integrity</h3>
+            <p>GitHub Releases assets are published with checksums for reproducible delivery.</p>
+          </article>
+        </div>
       </section>
 
       <section id="features" class="split-grid">
@@ -214,6 +324,20 @@
             <li>In-app update popup with silent Windows update flow.</li>
           </ul>
         </article>
+      </section>
+
+      <section class="app-frame why-panel" data-reveal>
+        <div class="section-head">
+          <h2>Why UniCreate</h2>
+          <div class="head-right">
+            <span class="status-chip live">Impact-first</span>
+          </div>
+        </div>
+        <ul class="text-list result-list">
+          <li>Zero schema misses with automatic YAML header generation and manifest validation.</li>
+          <li>Installer URLs and SHA256 handling stay consistent with fewer manual packaging mistakes.</li>
+          <li>Pull request creation and live winget-pkgs tracking happen in one focused desktop flow.</li>
+        </ul>
       </section>
 
       <section id="workflow" class="app-frame workflow-panel" data-reveal>
@@ -248,22 +372,6 @@
         </ol>
       </section>
 
-      <section class="app-frame screenshot-panel" data-reveal>
-        <div class="section-head">
-          <h2>UniCreate UI</h2>
-          <div class="head-right">
-            <span class="led-cluster" aria-hidden="true">
-              <span class="led-dot led-dot-live"></span>
-            </span>
-            <span class="status-chip live">Desktop preview</span>
-          </div>
-        </div>
-
-        <div class="screenshot-wrap">
-          <img src="./assets/unicreate-app.png" alt="UniCreate desktop app home screen" loading="lazy" />
-        </div>
-      </section>
-
       <section id="notes" class="app-frame notes-panel" data-reveal>
         <div class="section-head">
           <h2>Latest release notes</h2>
@@ -277,6 +385,37 @@
         <pre id="release-notes">Loading latest release notes...</pre>
       </section>
 
+      <section id="faq" class="app-frame faq-panel" data-reveal>
+        <div class="section-head">
+          <h2>FAQ</h2>
+          <div class="head-right">
+            <span class="status-chip muted">Winget-focused</span>
+          </div>
+        </div>
+        <div class="faq-list">
+          <details open>
+            <summary>Which InstallerType should I choose?</summary>
+            <p>Match your real installer package: EXE for custom installers, MSI for Windows Installer bundles.</p>
+          </details>
+          <details>
+            <summary>Where do silent switches come from?</summary>
+            <p>Use vendor documentation. UniCreate can prefill safe defaults for EXE, but publisher switches stay authoritative.</p>
+          </details>
+          <details>
+            <summary>Why can a GitHub URL fail in review?</summary>
+            <p>Winget validation rejects dead or redirected assets. Keep release assets public and ensure direct download URLs are stable.</p>
+          </details>
+          <details>
+            <summary>When should I publish MSI, EXE, or portable?</summary>
+            <p>Publish what users actually install. If you ship multiple channels, include each as a dedicated installer entry.</p>
+          </details>
+          <details>
+            <summary>Can I edit YAML before submission?</summary>
+            <p>Yes. Review keeps generated manifests editable so you can tune fields before export or PR submission.</p>
+          </details>
+        </div>
+      </section>
+
       <footer class="footer" data-reveal>
         <p>
           Built by
@@ -287,9 +426,15 @@
           <span class="dot-sep">*</span>
           <a href="https://github.com/drrakendu78/UniCreate/blob/master/LICENSE" target="_blank" rel="noreferrer">MIT License</a>
         </p>
-        <p class="mono" id="page-generated">Sync pending...</p>
+        <p class="mono" id="page-generated">Last sync: --</p>
       </footer>
     </main>
+
+    <button class="to-top-btn" id="to-top-btn" type="button" aria-label="Back to top">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M12 5.5L5 12.5l1.4 1.4 4.6-4.6V19h2V9.3l4.6 4.6 1.4-1.4-7-7z"></path>
+      </svg>
+    </button>
 
     <script src="./app.js" defer></script>
   </body>

@@ -1,8 +1,28 @@
 const repo = "drrakendu78/UniCreate";
 const releaseApi = `https://api.github.com/repos/${repo}/releases/latest`;
 const releasePage = `https://github.com/${repo}/releases`;
+const wingetPackageId = "Drrakendu78.UniCreate";
+const wingetOwner = "microsoft";
+const wingetRepo = "winget-pkgs";
+const wingetPrNumber = 340948;
+const wingetPrApi = `https://api.github.com/repos/${wingetOwner}/${wingetRepo}/pulls/${wingetPrNumber}`;
+const wingetIssueApi = `https://api.github.com/repos/${wingetOwner}/${wingetRepo}/issues/${wingetPrNumber}`;
+const wingetPrPage = `https://github.com/${wingetOwner}/${wingetRepo}/pull/${wingetPrNumber}`;
 
 const byId = (id) => document.getElementById(id);
+const githubHeaders = {
+  Accept: "application/vnd.github+json",
+  "X-GitHub-Api-Version": "2022-11-28",
+};
+const cachePrefix = "unicreate-site-cache:v1:";
+const apiCooldownKey = `${cachePrefix}api-cooldown-until`;
+const defaultApiCooldownMs = 10 * 60 * 1000;
+const cacheTtl = {
+  release: 20 * 60 * 1000,
+  wingetPr: 2 * 60 * 1000,
+  wingetLabels: 2 * 60 * 1000,
+};
+const fetchInflight = new Map();
 
 const setText = (id, value) => {
   const node = byId(id);
@@ -35,6 +55,136 @@ const formatDateTime = (date) =>
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+
+const readStorageJson = (key) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeStorageJson = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // ignore storage quota/availability errors
+  }
+};
+
+const cacheKeyFor = (key) => `${cachePrefix}${key}`;
+
+const getCached = (key, ttlMs = Number.POSITIVE_INFINITY) => {
+  if (!key) return null;
+  const payload = readStorageJson(cacheKeyFor(key));
+  if (!payload || typeof payload.ts !== "number") return null;
+  if (Date.now() - payload.ts > ttlMs) return null;
+  return payload.data ?? null;
+};
+
+const setCached = (key, data) => {
+  if (!key || data == null) return;
+  writeStorageJson(cacheKeyFor(key), {
+    ts: Date.now(),
+    data,
+  });
+};
+
+const getApiCooldownUntil = () => {
+  const value = Number(localStorage.getItem(apiCooldownKey) || 0);
+  if (!Number.isFinite(value)) return 0;
+  return value;
+};
+
+const setApiCooldown = (untilMs) => {
+  try {
+    localStorage.setItem(apiCooldownKey, String(untilMs));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+const getRateLimitResetMs = (response) => {
+  const resetHeader = Number(response.headers.get("x-ratelimit-reset") || 0);
+  if (!Number.isFinite(resetHeader) || resetHeader <= 0) return 0;
+  return resetHeader * 1000;
+};
+
+const fetchGitHubJson = async (url, options = {}) => {
+  const { cacheKey, ttlMs } = options;
+  const cachedFresh = getCached(cacheKey, ttlMs);
+  const cachedStale = getCached(cacheKey);
+
+  const cooldownUntil = getApiCooldownUntil();
+  if (cooldownUntil > Date.now()) {
+    if (cachedStale) return cachedStale;
+    throw new Error(`GitHub API cooldown active until ${new Date(cooldownUntil).toISOString()}`);
+  }
+
+  if (fetchInflight.has(url)) {
+    return fetchInflight.get(url);
+  }
+
+  const request = (async () => {
+    try {
+      const response = await fetch(url, { headers: githubHeaders });
+
+      if (response.status === 403) {
+        const resetMs = getRateLimitResetMs(response);
+        const cooldownMs = resetMs > Date.now() ? resetMs : Date.now() + defaultApiCooldownMs;
+        setApiCooldown(cooldownMs);
+        if (cachedStale) return cachedStale;
+        throw new Error(`GitHub API error 403 on ${url}`);
+      }
+
+      if (!response.ok) {
+        if (cachedStale) return cachedStale;
+        throw new Error(`GitHub API error ${response.status} on ${url}`);
+      }
+
+      const payload = await response.json();
+      setCached(cacheKey, payload);
+      return payload;
+    } catch (error) {
+      if (cachedFresh) return cachedFresh;
+      if (cachedStale) return cachedStale;
+      throw error;
+    } finally {
+      fetchInflight.delete(url);
+    }
+  })();
+
+  fetchInflight.set(url, request);
+  return request;
+};
+
+const normalizeHexColor = (value) => {
+  const raw = String(value || "")
+    .trim()
+    .replace(/^#/, "");
+  if (/^[a-f0-9]{3}$/i.test(raw)) return raw.split("").map((char) => `${char}${char}`).join("").toLowerCase();
+  if (/^[a-f0-9]{6}$/i.test(raw)) return raw.toLowerCase();
+  return null;
+};
+
+const hexToRgb = (hex) => ({
+  r: Number.parseInt(hex.slice(0, 2), 16),
+  g: Number.parseInt(hex.slice(2, 4), 16),
+  b: Number.parseInt(hex.slice(4, 6), 16),
+});
+
+const prLabelVisuals = (rawColor) => {
+  const hex = normalizeHexColor(rawColor);
+  if (!hex) return null;
+  const { r, g, b } = hexToRgb(hex);
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return {
+    borderColor: `rgba(${r}, ${g}, ${b}, 0.68)`,
+    backgroundColor: `rgba(${r}, ${g}, ${b}, 0.24)`,
+    textColor: luminance > 0.62 ? "#0a1118" : "#f7fbff",
+  };
+};
 
 const pickAsset = (assets, matchers) => {
   const patterns = Array.isArray(matchers) ? matchers : [matchers];
@@ -74,12 +224,14 @@ const setReleaseUi = (release) => {
   setText("release-version-chip", version);
   setText("release-tag", version);
   setText("release-tag-2", version);
+  setText("widget-release-tag", version);
   setText("release-date", formatDate(release.published_at));
   setText("release-downloads", String(downloadCount));
 
   setHref("btn-setup", setup?.browser_download_url || release.html_url || releasePage);
   setHref("btn-portable", portable?.browser_download_url || release.html_url || releasePage);
   setHref("btn-release", release.html_url || releasePage);
+  setHref("widget-release-link", release.html_url || releasePage);
 
   setHref("asset-setup", setup?.browser_download_url || release.html_url || releasePage, setup?.name || "Open release");
   setHref("asset-msi", msi?.browser_download_url || release.html_url || releasePage, msi?.name || "Open release");
@@ -110,12 +262,14 @@ const setFallbackUi = () => {
   setText("release-version-chip", "offline");
   setText("release-tag", "offline");
   setText("release-tag-2", "offline");
+  setText("widget-release-tag", "offline");
   setText("release-date", "-");
   setText("release-downloads", "-");
 
   setHref("btn-setup", releasePage);
   setHref("btn-portable", releasePage);
   setHref("btn-release", releasePage);
+  setHref("widget-release-link", releasePage, "Open");
   setHref("asset-setup", releasePage, "Open releases");
   setHref("asset-msi", releasePage, "Open releases");
   setHref("asset-portable", releasePage, "Open releases");
@@ -129,21 +283,332 @@ const setFallbackUi = () => {
 
 const loadRelease = async () => {
   try {
-    const response = await fetch(releaseApi, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
+    const release = await fetchGitHubJson(releaseApi, {
+      cacheKey: "release-latest",
+      ttlMs: cacheTtl.release,
     });
-
-    if (!response.ok) throw new Error(`GitHub API error ${response.status}`);
-
-    const release = await response.json();
     setReleaseUi(release);
   } catch (error) {
     console.error(error);
     setFallbackUi();
   }
+};
+
+const applyWingetBadgeClass = (stateClass) => {
+  const node = byId("winget-state-badge");
+  if (!node) return;
+  node.className = `winget-state mono ${stateClass}`;
+};
+
+const setWingetUi = ({ badge, stateClass, label, command, text, link, linkLabel }) => {
+  setText("winget-state-badge", badge);
+  applyWingetBadgeClass(stateClass);
+  setText("winget-state-label", label);
+  setText("winget-command", command);
+  setText("winget-status-text", text);
+  setHref("winget-pr-link", link, linkLabel);
+  setHref("widget-pr-link", link, "Open");
+
+  const commandNode = byId("winget-command");
+  if (!commandNode) return;
+  commandNode.classList.toggle("winget-command-ready", stateClass === "winget-state-ready");
+};
+
+const renderWingetPrBadges = (labels) => {
+  const node = byId("winget-pr-badges");
+  if (!node) return;
+  node.replaceChildren();
+
+  const list = Array.isArray(labels) ? labels.slice(0, 8) : [];
+  if (!list.length) {
+    const empty = document.createElement("span");
+    empty.className = "winget-pr-badge winget-pr-badge-muted";
+    empty.textContent = "No PR labels yet";
+    node.append(empty);
+    return;
+  }
+
+  for (const label of list) {
+    const badge = document.createElement("span");
+    badge.className = "winget-pr-badge";
+    badge.textContent = label?.name || "label";
+
+    const visuals = prLabelVisuals(label?.color);
+    if (visuals) {
+      badge.style.borderColor = visuals.borderColor;
+      badge.style.backgroundColor = visuals.backgroundColor;
+      badge.style.color = visuals.textColor;
+    }
+
+    node.append(badge);
+  }
+};
+
+const loadWingetPrLabels = async () => {
+  try {
+    const issue = await fetchGitHubJson(wingetIssueApi, {
+      cacheKey: `winget-issue-${wingetPrNumber}`,
+      ttlMs: cacheTtl.wingetLabels,
+    });
+    return Array.isArray(issue.labels) ? issue.labels : [];
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+};
+
+const pickPrimaryPrLabel = (labels) => {
+  const list = Array.isArray(labels) ? labels : [];
+  if (!list.length) return null;
+
+  const priorities = [
+    /validation-completed/i,
+    /azure-pipeline-passed/i,
+    /publish-pipeline-passed/i,
+    /new-package/i,
+  ];
+
+  for (const pattern of priorities) {
+    const found = list.find((label) => pattern.test(label?.name || ""));
+    if (found) return found;
+  }
+
+  return list[0];
+};
+
+const stateClassFromLabel = (labelName) => {
+  const name = String(labelName || "").toLowerCase();
+  if (!name) return "winget-state-review";
+  if (/(failed|error|blocked|rejected|needs|conflict|invalid)/.test(name)) return "winget-state-blocked";
+  if (/(passed|completed|healthy|approved|merged)/.test(name)) return "winget-state-ready";
+  if (/(closed|abandoned)/.test(name)) return "winget-state-closed";
+  return "winget-state-review";
+};
+
+const resolveReviewSignal = (mergeableState, draft) => {
+  if (draft) return { badge: "Draft", className: "winget-state-blocked", summary: "draft pull request" };
+
+  switch ((mergeableState || "").toLowerCase()) {
+    case "clean":
+      return { badge: "In review", className: "winget-state-review", summary: "checks passing" };
+    case "behind":
+      return { badge: "Needs update", className: "winget-state-blocked", summary: "branch behind base" };
+    case "blocked":
+    case "dirty":
+      return { badge: "Needs action", className: "winget-state-blocked", summary: "changes requested or conflicts" };
+    case "unstable":
+      return { badge: "In review", className: "winget-state-review", summary: "checks running" };
+    default:
+      return { badge: "In review", className: "winget-state-review", summary: "review in progress" };
+  }
+};
+
+const loadWingetStatus = async () => {
+  try {
+    const [pullRequest, prLabels] = await Promise.all([
+      fetchGitHubJson(wingetPrApi, {
+        cacheKey: `winget-pr-${wingetPrNumber}`,
+        ttlMs: cacheTtl.wingetPr,
+      }),
+      loadWingetPrLabels(),
+    ]);
+    renderWingetPrBadges(prLabels);
+
+    const prTitle = pullRequest.title || `${wingetPackageId} package`;
+    const prNumber = pullRequest.number || wingetPrNumber;
+    setText("widget-pr-ref", `#${prNumber}`);
+    const prLinkLabel = `Open PR #${prNumber}`;
+
+    if (pullRequest.merged_at) {
+      setWingetUi({
+        badge: "Available",
+        stateClass: "winget-state-ready",
+        label: "WinGet package status",
+        command: `winget install ${wingetPackageId}`,
+        text: `Merged into winget-pkgs on ${formatDate(pullRequest.merged_at)}. Install directly from terminal.`,
+        link: pullRequest.html_url || wingetPrPage,
+        linkLabel: prLinkLabel,
+      });
+      return;
+    }
+
+    if ((pullRequest.state || "").toLowerCase() === "open") {
+      const signal = resolveReviewSignal(pullRequest.mergeable_state, pullRequest.draft);
+      const primaryLabel = pickPrimaryPrLabel(prLabels);
+      const badgeLabel = primaryLabel?.name || signal.badge;
+      const badgeClass = primaryLabel ? stateClassFromLabel(primaryLabel.name) : signal.className;
+      setWingetUi({
+        badge: badgeLabel,
+        stateClass: badgeClass,
+        label: "WinGet package status",
+        command: "Not available yet",
+        text: `PR #${prNumber} (${prTitle}) is ${signal.summary}. Command will be winget install ${wingetPackageId} once merged into winget-pkgs.`,
+        link: pullRequest.html_url || wingetPrPage,
+        linkLabel: prLinkLabel,
+      });
+      return;
+    }
+
+    setWingetUi({
+      badge: "Closed",
+      stateClass: "winget-state-closed",
+      label: "WinGet package status",
+      command: "Not available",
+      text: `PR #${prNumber} is closed. A merged PR is required before winget install is available.`,
+      link: pullRequest.html_url || wingetPrPage,
+      linkLabel: prLinkLabel,
+    });
+  } catch (error) {
+    console.error(error);
+    renderWingetPrBadges([]);
+    setText("widget-pr-ref", `#${wingetPrNumber}`);
+    setWingetUi({
+      badge: "Status unavailable",
+      stateClass: "winget-state-offline",
+      label: "WinGet package status",
+      command: "Status unavailable",
+      text: `Could not query winget-pkgs right now. Check PR status directly on GitHub.`,
+      link: wingetPrPage,
+      linkLabel: "Open current PR",
+    });
+  }
+};
+
+const ensureManifestForHttp = () => {
+  if (!/^https?:$/.test(window.location.protocol)) return;
+  if (document.querySelector("link[rel='manifest']")) return;
+  const manifest = document.createElement("link");
+  manifest.rel = "manifest";
+  manifest.href = "./site.webmanifest";
+  document.head.append(manifest);
+};
+
+const setupBackToTop = () => {
+  const button = byId("to-top-btn");
+  if (!button) return;
+
+  const sync = () => {
+    button.classList.toggle("is-visible", window.scrollY > 420);
+  };
+
+  button.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  sync();
+  window.addEventListener("scroll", sync, { passive: true });
+};
+
+const setupMobileNavigation = () => {
+  const topbar = document.querySelector(".app-topbar");
+  const toggle = byId("nav-toggle");
+  const nav = byId("primary-nav");
+  if (!topbar || !toggle || !nav) return;
+
+  const navLinks = [...nav.querySelectorAll("a[href^='#']")];
+  const isMobile = () => window.matchMedia("(max-width: 760px)").matches;
+
+  const setOpen = (open) => {
+    topbar.classList.toggle("nav-open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
+  };
+
+  setOpen(false);
+
+  toggle.addEventListener("click", () => {
+    if (!isMobile()) return;
+    setOpen(!topbar.classList.contains("nav-open"));
+  });
+
+  navLinks.forEach((link) => {
+    link.addEventListener("click", () => {
+      if (isMobile()) setOpen(false);
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!isMobile()) return;
+    const target = event.target;
+    if (target instanceof Node && !topbar.contains(target)) {
+      setOpen(false);
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (!isMobile()) setOpen(false);
+  });
+};
+
+const setupStepNavigation = () => {
+  const links = [...document.querySelectorAll(".app-steps a[href^='#']")];
+  if (!links.length) return;
+
+  const items = links
+    .map((link) => {
+      const targetSelector = link.getAttribute("href");
+      if (!targetSelector) return null;
+      const target = document.querySelector(targetSelector);
+      if (!target) return null;
+      return { link, target };
+    })
+    .filter(Boolean);
+
+  if (!items.length) return;
+
+  const setCurrent = (activeLink) => {
+    for (const { link } of items) {
+      link.classList.toggle("is-current", link === activeLink);
+    }
+  };
+
+  const getTargetTop = (target) => window.scrollY + target.getBoundingClientRect().top;
+  const minActiveSpan = 180;
+
+  const syncCurrentFromScroll = () => {
+    if (window.scrollY <= 24) {
+      setCurrent(items[0].link);
+      return;
+    }
+
+    const scrollBottom = window.scrollY + window.innerHeight;
+    const docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+    if (scrollBottom >= docHeight - 4) {
+      setCurrent(items[items.length - 1].link);
+      return;
+    }
+
+    const markerOffset = Math.min(Math.max(window.innerHeight * 0.34, 180), 360);
+    const marker = window.scrollY + markerOffset;
+    let current = items[0];
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+      const start = getTargetTop(item.target);
+      const nextStart = index < items.length - 1 ? getTargetTop(items[index + 1].target) : Number.POSITIVE_INFINITY;
+      const end = Math.max(start + minActiveSpan, nextStart - 48);
+
+      if (marker >= start && marker < end) {
+        current = item;
+        break;
+      }
+
+      if (marker >= start) current = item;
+    }
+
+    setCurrent(current.link);
+  };
+
+  for (const { link, target } of items) {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      setCurrent(link);
+    });
+  }
+
+  syncCurrentFromScroll();
+  window.addEventListener("scroll", syncCurrentFromScroll, { passive: true });
+  window.addEventListener("resize", syncCurrentFromScroll);
 };
 
 const setupReveal = () => {
@@ -168,6 +633,11 @@ const setupReveal = () => {
 };
 
 window.addEventListener("DOMContentLoaded", () => {
+  ensureManifestForHttp();
   setupReveal();
+  setupMobileNavigation();
+  setupStepNavigation();
+  setupBackToTop();
   loadRelease();
+  loadWingetStatus();
 });
