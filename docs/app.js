@@ -9,6 +9,10 @@ const wingetSearchQuery = `repo:${wingetOwner}/${wingetRepo} is:pr "${wingetPack
 const wingetSearchApi = `https://api.github.com/search/issues?q=${encodeURIComponent(
   wingetSearchQuery
 )}&sort=created&order=desc&per_page=20`;
+const wingetMergedSearchQuery = `repo:${wingetOwner}/${wingetRepo} is:pr is:merged "${wingetPackageId}"`;
+const wingetMergedSearchApi = `https://api.github.com/search/issues?q=${encodeURIComponent(
+  wingetMergedSearchQuery
+)}&sort=created&order=desc&per_page=10`;
 const wingetRepoPrsPage = `https://github.com/${wingetOwner}/${wingetRepo}/pulls?q=is%3Apr+${encodeURIComponent(
   wingetPackageId
 )}`;
@@ -456,6 +460,24 @@ const fetchLatestWingetPr = async () => {
   return { pullRequest, labels };
 };
 
+const fetchLatestMergedWingetInfo = async () => {
+  const searchResult = await fetchGitHubJson(wingetMergedSearchApi, {
+    cacheKey: `winget-merged-search-${wingetPackageId.toLowerCase()}`,
+    ttlMs: cacheTtl.wingetSearch,
+  });
+
+  const selected = pickWingetPrFromSearch(searchResult?.items);
+  if (!selected) return null;
+
+  return {
+    number: selected.number,
+    title: selected.title || "",
+    url: selected.html_url || wingetRepoPrsPage,
+    mergedAt: selected.closed_at || null,
+    version: extractVersionFromPrTitle(selected.title || ""),
+  };
+};
+
 const pickPrimaryPrLabel = (labels) => {
   const list = Array.isArray(labels) ? labels : [];
   if (!list.length) return null;
@@ -504,7 +526,12 @@ const resolveReviewSignal = (mergeableState, draft) => {
 
 const loadWingetStatus = async () => {
   try {
-    const wingetData = await fetchLatestWingetPr();
+    const [wingetData, mergedWingetInfo] = await Promise.all([fetchLatestWingetPr(), fetchLatestMergedWingetInfo()]);
+    const mergedVersion = mergedWingetInfo?.version || null;
+    const hasWingetVersion = Boolean(mergedVersion);
+    const installCommand = `winget install ${wingetPackageId}`;
+    const wingetVersionNote = hasWingetVersion ? ` WinGet available version: v${mergedVersion}.` : "";
+
     if (!wingetData?.pullRequest) {
       renderWingetPrBadges([]);
       setText("widget-pr-ref", "None");
@@ -512,8 +539,10 @@ const loadWingetStatus = async () => {
         badge: "No PR found",
         stateClass: "winget-state-offline",
         label: "WinGet package status",
-        command: "Status unavailable",
-        text: "No UniCreate PR found in winget-pkgs yet.",
+        command: hasWingetVersion ? installCommand : "Status unavailable",
+        text: hasWingetVersion
+          ? `No active UniCreate PR found in winget-pkgs.${wingetVersionNote}`
+          : "No UniCreate PR found in winget-pkgs yet.",
         link: wingetRepoPrsPage,
         linkLabel: "Open winget PRs",
       });
@@ -542,8 +571,8 @@ const loadWingetStatus = async () => {
         badge: "Available",
         stateClass: "winget-state-ready",
         label: "WinGet package status",
-        command: `winget install ${wingetPackageId}`,
-        text: `Merged into winget-pkgs on ${formatDate(pullRequest.merged_at)}. Install directly from terminal.`,
+        command: installCommand,
+        text: `Merged into winget-pkgs on ${formatDate(pullRequest.merged_at)}. Install directly from terminal.${wingetVersionNote}`,
         link: prLink,
         linkLabel: prLinkLabel,
       });
@@ -559,8 +588,10 @@ const loadWingetStatus = async () => {
         badge: badgeLabel,
         stateClass: badgeClass,
         label: "WinGet package status",
-        command: "Not available yet",
-        text: `PR #${prNumber} (${prTitle}) is ${signal.summary}. Command will be winget install ${wingetPackageId} once merged into winget-pkgs.${behindNote}`,
+        command: hasWingetVersion ? installCommand : "Not available yet",
+        text: hasWingetVersion
+          ? `PR #${prNumber} (${prTitle}) is ${signal.summary}. New version will be available after merge.${wingetVersionNote}${behindNote}`
+          : `PR #${prNumber} (${prTitle}) is ${signal.summary}. Command will be winget install ${wingetPackageId} once merged into winget-pkgs.${behindNote}`,
         link: prLink,
         linkLabel: prLinkLabel,
       });
@@ -571,8 +602,10 @@ const loadWingetStatus = async () => {
       badge: "Closed",
       stateClass: "winget-state-closed",
       label: "WinGet package status",
-      command: "Not available",
-      text: `PR #${prNumber} is closed. A merged PR is required before winget install is available.${behindNote}`,
+      command: hasWingetVersion ? installCommand : "Not available",
+      text: hasWingetVersion
+        ? `PR #${prNumber} is closed.${wingetVersionNote}${behindNote}`
+        : `PR #${prNumber} is closed. A merged PR is required before winget install is available.${behindNote}`,
       link: prLink,
       linkLabel: prLinkLabel,
     });
