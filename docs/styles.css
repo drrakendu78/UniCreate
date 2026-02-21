@@ -467,6 +467,45 @@ h1 {
   color: hsl(var(--text-soft));
 }
 
+.winget-pr-badge-summary {
+  cursor: pointer;
+  background: hsl(var(--surface-3));
+  border-color: hsl(var(--line));
+  color: hsl(var(--text-soft));
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.winget-pr-badge-tooltip-wrap:hover .winget-pr-badge-summary {
+  border-color: hsl(var(--accent));
+  color: hsl(var(--text));
+}
+
+.winget-pr-badge-tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.winget-pr-badge-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid hsl(var(--line));
+  background: hsl(var(--surface-2));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+}
+
+.winget-pr-badge-tooltip-wrap:hover .winget-pr-badge-dropdown {
+  display: flex;
+}
+
 .winget-link {
   display: inline-flex;
   align-items: center;

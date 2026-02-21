@@ -287,19 +287,26 @@ export function Home() {
     }
   };
 
-  const handleSearch = async () => {
-    if (!packageId.trim()) return;
+  const searchPackage = async (id: string) => {
+    if (!id.trim()) return;
     setLoading(true);
     setError(null);
     setFound(null);
     try {
-      const existing = await invoke<ExistingManifest>("fetch_existing_manifest", { packageId: packageId.trim() });
+      const existing = await invoke<ExistingManifest>("fetch_existing_manifest", { packageId: id.trim() });
       setFound(existing);
     } catch (e) {
       setError(String(e));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = () => searchPackage(packageId);
+
+  const handleQuickSelect = (id: string) => {
+    setPackageId(id);
+    searchPackage(id);
   };
 
   const handleUpdate = () => {
@@ -484,6 +491,30 @@ export function Home() {
                 className="h-10 w-full rounded-lg border border-border bg-background/50 pl-10 pr-4 text-[13px] placeholder:text-muted-foreground/40 focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all" />
             </div>
           </div>
+
+          {(() => {
+            const recentIds = [...new Set(submissions.map((s) => s.packageId))];
+            if (!recentIds.length) return null;
+            return (
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">Recent packages</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {recentIds.map((id) => (
+                    <button key={id} onClick={() => handleQuickSelect(id)} disabled={loading}
+                      className={cn(
+                        "rounded-md border px-2.5 py-1 text-[11px] font-medium transition-all",
+                        packageId === id
+                          ? "border-primary/40 bg-primary/10 text-primary"
+                          : "border-border bg-background/50 text-muted-foreground hover:border-primary/30 hover:text-foreground",
+                        "disabled:opacity-40 disabled:cursor-not-allowed"
+                      )}>
+                      {id}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           <button onClick={handleSearch} disabled={!packageId.trim() || loading}
             className={cn("flex h-9 w-full items-center justify-center gap-2 rounded-lg text-[13px] font-medium transition-all duration-200",

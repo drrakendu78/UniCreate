@@ -30,7 +30,6 @@ pub struct InstallerEntry {
     pub elevation_requirement: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstallerSwitches {
@@ -257,7 +256,16 @@ fn generate_installer_yaml(m: &ManifestData) -> YamlFile {
             .filter(|v| !v.is_empty())
             .cloned();
 
-        if silent.is_some() || silent_with_progress.is_some() || custom.is_some() {
+        let interactive = inst.installer_switches.as_ref().and_then(|s| s.interactive.as_ref()).filter(|v| !v.is_empty()).cloned();
+        let install_location = inst.installer_switches.as_ref().and_then(|s| s.install_location.as_ref()).filter(|v| !v.is_empty()).cloned();
+        let log = inst.installer_switches.as_ref().and_then(|s| s.log.as_ref()).filter(|v| !v.is_empty()).cloned();
+        let upgrade = inst.installer_switches.as_ref().and_then(|s| s.upgrade.as_ref()).filter(|v| !v.is_empty()).cloned();
+        let repair = inst.installer_switches.as_ref().and_then(|s| s.repair.as_ref()).filter(|v| !v.is_empty()).cloned();
+
+        if silent.is_some() || silent_with_progress.is_some() || custom.is_some()
+            || interactive.is_some() || install_location.is_some() || log.is_some()
+            || upgrade.is_some() || repair.is_some()
+        {
             content.push_str("  InstallerSwitches:\n");
             if let Some(v) = silent {
                 content.push_str(&format!("    Silent: {}\n", format_yaml_scalar(&v)));
@@ -268,8 +276,23 @@ fn generate_installer_yaml(m: &ManifestData) -> YamlFile {
                     format_yaml_scalar(&v)
                 ));
             }
+            if let Some(v) = interactive {
+                content.push_str(&format!("    Interactive: {}\n", format_yaml_scalar(&v)));
+            }
+            if let Some(v) = install_location {
+                content.push_str(&format!("    InstallLocation: {}\n", format_yaml_scalar(&v)));
+            }
+            if let Some(v) = log {
+                content.push_str(&format!("    Log: {}\n", format_yaml_scalar(&v)));
+            }
+            if let Some(v) = upgrade {
+                content.push_str(&format!("    Upgrade: {}\n", format_yaml_scalar(&v)));
+            }
             if let Some(v) = custom {
                 content.push_str(&format!("    Custom: {}\n", format_yaml_scalar(&v)));
+            }
+            if let Some(v) = repair {
+                content.push_str(&format!("    Repair: {}\n", format_yaml_scalar(&v)));
             }
         }
     }

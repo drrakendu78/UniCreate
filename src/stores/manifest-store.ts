@@ -197,7 +197,7 @@ export const useManifestStore = create<ManifestStore>()(persist((set) => ({
           author: existing.author || undefined,
           moniker: existing.moniker || undefined,
           tags: existing.tags.length ? existing.tags : undefined,
-          releaseNotesUrl: existing.releaseNotesUrl || undefined,
+          // releaseNotesUrl intentionally omitted — will be set from the new release URL
         },
       },
     })),

@@ -309,18 +309,24 @@ Start-Process -FilePath $appPath\n",
 
     std::fs::write(&script_path, script).map_err(|e| format!("Cannot write updater script: {}", e))?;
 
-    std::process::Command::new("powershell")
-        .args([
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-WindowStyle",
-            "Hidden",
-            "-File",
-            &script_path.to_string_lossy(),
-        ])
-        .spawn()
-        .map_err(|e| format!("Cannot start updater: {}", e))?;
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-WindowStyle",
+                "Hidden",
+                "-File",
+                &script_path.to_string_lossy(),
+            ])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+            .map_err(|e| format!("Cannot start updater: {}", e))?;
+    }
 
     Ok(())
 }
@@ -588,15 +594,20 @@ struct GitHubFileContent {
 }
 
 fn parse_yaml_field(content: &str, field: &str) -> Option<String> {
+    let prefix = format!("{}: ", field);
+    let prefix_empty = format!("{}:", field);
     for line in content.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with(&format!("{}:", field)) {
-            let value = trimmed[field.len() + 1..].trim();
-            // Remove surrounding quotes
+        // Match "Field: value" exactly — avoid prefix collisions (Publisher vs PublisherUrl)
+        if trimmed.starts_with(&prefix) {
+            let value = trimmed[prefix.len()..].trim();
             let value = value.trim_matches('"').trim_matches('\'');
             if !value.is_empty() {
                 return Some(value.to_string());
             }
+        } else if trimmed == prefix_empty {
+            // "Field:" with no value on same line
+            continue;
         }
     }
     None
@@ -631,17 +642,17 @@ pub async fn fetch_existing_manifest(package_id: &str) -> Result<ExistingManifes
     headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.github.v3+json"));
     headers.insert(USER_AGENT, HeaderValue::from_static("UniCreate/1.0"));
 
-    // Build path: manifests/d/Drrakendu78/StarTradFR/
-    let parts: Vec<&str> = package_id.splitn(2, '.').collect();
-    if parts.len() != 2 {
+    // Build path: manifests/m/Microsoft/VisualStudio/2022/Community/
+    let segments: Vec<&str> = package_id.split('.').collect();
+    if segments.len() < 2 {
         return Err("Invalid package identifier format (expected Publisher.Package)".to_string());
     }
-    let (publisher, package) = (parts[0], parts[1]);
-    let first_letter = publisher.chars().next().unwrap_or('_').to_lowercase().to_string();
+    let first_letter = segments[0].chars().next().unwrap_or('_').to_lowercase().to_string();
+    let package_path = segments.join("/");
 
     let dir_url = format!(
-        "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/{}/{}/{}",
-        first_letter, publisher, package
+        "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/{}/{}",
+        first_letter, package_path
     );
 
     // List versions
@@ -735,16 +746,16 @@ pub async fn check_package_exists(package_id: &str) -> Result<bool, String> {
     headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.github.v3+json"));
     headers.insert(USER_AGENT, HeaderValue::from_static("UniCreate/1.0"));
 
-    let parts: Vec<&str> = package_id.splitn(2, '.').collect();
-    if parts.len() != 2 {
+    let segments: Vec<&str> = package_id.split('.').collect();
+    if segments.len() < 2 {
         return Ok(false);
     }
-    let (publisher, package) = (parts[0], parts[1]);
-    let first_letter = publisher.chars().next().unwrap_or('_').to_lowercase().to_string();
+    let first_letter = segments[0].chars().next().unwrap_or('_').to_lowercase().to_string();
+    let package_path = segments.join("/");
 
     let url = format!(
-        "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/{}/{}/{}",
-        first_letter, publisher, package
+        "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/{}/{}",
+        first_letter, package_path
     );
 
     let resp = client
@@ -1111,15 +1122,11 @@ pub async fn submit_manifest(
     let base_sha = &master_ref.object.sha;
 
     // 4. Create blobs for each YAML file
-    let first_letter = package_id.chars().next().unwrap_or('_').to_lowercase().to_string();
-    let parts: Vec<&str> = package_id.splitn(2, '.').collect();
-    let (publisher, package) = if parts.len() == 2 {
-        (parts[0], parts[1])
-    } else {
-        (package_id, package_id)
-    };
+    let segments: Vec<&str> = package_id.split('.').collect();
+    let first_letter = segments[0].chars().next().unwrap_or('_').to_lowercase().to_string();
+    let package_path = segments.join("/");
 
-    let base_path = format!("manifests/{}/{}/{}/{}", first_letter, publisher, package, version);
+    let base_path = format!("manifests/{}/{}/{}", first_letter, package_path, version);
 
     let mut tree_entries = Vec::new();
     for file in yaml_files {

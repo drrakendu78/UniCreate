@@ -328,6 +328,17 @@ const renderWingetPrBadges = (labels) => {
     return;
   }
 
+  const wrapper = document.createElement("span");
+  wrapper.className = "winget-pr-badge-tooltip-wrap";
+
+  const chip = document.createElement("span");
+  chip.className = "winget-pr-badge winget-pr-badge-summary";
+  chip.textContent = `${list.length} label${list.length > 1 ? "s" : ""}`;
+  wrapper.append(chip);
+
+  const dropdown = document.createElement("span");
+  dropdown.className = "winget-pr-badge-dropdown";
+
   for (const label of list) {
     const badge = document.createElement("span");
     badge.className = "winget-pr-badge";
@@ -340,8 +351,11 @@ const renderWingetPrBadges = (labels) => {
       badge.style.color = visuals.textColor;
     }
 
-    node.append(badge);
+    dropdown.append(badge);
   }
+
+  wrapper.append(dropdown);
+  node.append(wrapper);
 };
 
 const loadWingetPrLabels = async () => {

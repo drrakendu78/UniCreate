@@ -27,7 +27,7 @@ const installerTypes: InstallerType[] = [
 ];
 
 export function StepInstaller() {
-  const { manifest, addInstaller, removeInstaller, setStep, isAnalyzing, setIsAnalyzing, applyRepoMetadata, isUpdate } = useManifestStore();
+  const { manifest, addInstaller, removeInstaller, setStep, isAnalyzing, setIsAnalyzing, applyRepoMetadata, setPackageVersion, setLocale, isUpdate } = useManifestStore();
   const addToast = useToastStore((s) => s.addToast);
 
   const [url, setUrl] = useState("");
@@ -111,9 +111,16 @@ export function StepInstaller() {
       if (detectedType) setInstallerType(detectedType);
       if (detectedArch) setArch(detectedArch);
 
-      if (meta && !isUpdate) {
-        applyRepoMetadata(meta);
-        setAutoFilled(true);
+      if (meta) {
+        if (isUpdate) {
+          // In update mode: only apply new release info (version, release notes)
+          if (meta.version) setPackageVersion(meta.version);
+          if (meta.releaseNotes) setLocale({ releaseNotes: meta.releaseNotes });
+          if (meta.releaseUrl) setLocale({ releaseNotesUrl: meta.releaseUrl });
+        } else {
+          applyRepoMetadata(meta);
+          setAutoFilled(true);
+        }
       }
 
       addToast("Installer added successfully", "success");
