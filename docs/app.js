@@ -4,10 +4,14 @@ const releasePage = `https://github.com/${repo}/releases`;
 const wingetPackageId = "Drrakendu78.UniCreate";
 const wingetOwner = "microsoft";
 const wingetRepo = "winget-pkgs";
-const wingetPrNumber = 340948;
-const wingetPrApi = `https://api.github.com/repos/${wingetOwner}/${wingetRepo}/pulls/${wingetPrNumber}`;
-const wingetIssueApi = `https://api.github.com/repos/${wingetOwner}/${wingetRepo}/issues/${wingetPrNumber}`;
-const wingetPrPage = `https://github.com/${wingetOwner}/${wingetRepo}/pull/${wingetPrNumber}`;
+const wingetFallbackPrNumber = 340948;
+const wingetSearchQuery = `repo:${wingetOwner}/${wingetRepo} is:pr "${wingetPackageId}"`;
+const wingetSearchApi = `https://api.github.com/search/issues?q=${encodeURIComponent(
+  wingetSearchQuery
+)}&sort=created&order=desc&per_page=20`;
+const wingetRepoPrsPage = `https://github.com/${wingetOwner}/${wingetRepo}/pulls?q=is%3Apr+${encodeURIComponent(
+  wingetPackageId
+)}`;
 
 const byId = (id) => document.getElementById(id);
 const githubHeaders = {
@@ -19,10 +23,12 @@ const apiCooldownKey = `${cachePrefix}api-cooldown-until`;
 const defaultApiCooldownMs = 10 * 60 * 1000;
 const cacheTtl = {
   release: 20 * 60 * 1000,
+  wingetSearch: 2 * 60 * 1000,
   wingetPr: 2 * 60 * 1000,
   wingetLabels: 2 * 60 * 1000,
 };
 const fetchInflight = new Map();
+let latestReleaseVersion = null;
 
 const setText = (id, value) => {
   const node = byId(id);
@@ -55,6 +61,39 @@ const formatDateTime = (date) =>
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+
+const cleanVersion = (value) => String(value || "").trim().replace(/^v/i, "");
+
+const parseVersionParts = (value) => {
+  const matches = cleanVersion(value).match(/\d+/g);
+  if (!matches) return [];
+  return matches.map((part) => Number.parseInt(part, 10)).filter((part) => Number.isFinite(part));
+};
+
+const compareVersions = (lhs, rhs) => {
+  const lhsParts = parseVersionParts(lhs);
+  const rhsParts = parseVersionParts(rhs);
+  const maxLen = Math.max(lhsParts.length, rhsParts.length);
+
+  for (let index = 0; index < maxLen; index += 1) {
+    const l = lhsParts[index] ?? 0;
+    const r = rhsParts[index] ?? 0;
+    if (l > r) return 1;
+    if (l < r) return -1;
+  }
+
+  return 0;
+};
+
+const extractVersionFromPrTitle = (title) => {
+  const value = String(title || "");
+  const versionMatch = value.match(/\bversion\s+([vV]?\d+(?:\.\d+){1,3})\b/i);
+  if (versionMatch?.[1]) return cleanVersion(versionMatch[1]);
+
+  const genericMatch = value.match(/\b([vV]?\d+(?:\.\d+){1,3})\b/);
+  if (genericMatch?.[1]) return cleanVersion(genericMatch[1]);
+  return null;
+};
 
 const readStorageJson = (key) => {
   try {
@@ -212,6 +251,7 @@ const buildNotes = ({ version, publishedAt, setup, msi, portable, rawNotes }) =>
 
 const setReleaseUi = (release) => {
   const version = release.tag_name || "latest";
+  latestReleaseVersion = cleanVersion(version);
   const assets = Array.isArray(release.assets) ? release.assets : [];
 
   const setup = pickAsset(assets, [/setup\.exe$/i, /-setup\.exe$/i]);
@@ -258,6 +298,7 @@ const setReleaseUi = (release) => {
 };
 
 const setFallbackUi = () => {
+  latestReleaseVersion = null;
   setText("release-version", "Unavailable");
   setText("release-version-chip", "offline");
   setText("release-tag", "offline");
@@ -288,9 +329,11 @@ const loadRelease = async () => {
       ttlMs: cacheTtl.release,
     });
     setReleaseUi(release);
+    return release;
   } catch (error) {
     console.error(error);
     setFallbackUi();
+    return null;
   }
 };
 
@@ -312,6 +355,13 @@ const setWingetUi = ({ badge, stateClass, label, command, text, link, linkLabel 
   const commandNode = byId("winget-command");
   if (!commandNode) return;
   commandNode.classList.toggle("winget-command-ready", stateClass === "winget-state-ready");
+
+  const copyButton = byId("winget-copy-btn");
+  if (!copyButton) return;
+  const copyable = /^winget install\s+/i.test(String(command || "").trim());
+  copyButton.disabled = !copyable;
+  copyButton.dataset.command = copyable ? String(command).trim() : "";
+  copyButton.textContent = copyable ? "Copy" : "Copy";
 };
 
 const renderWingetPrBadges = (labels) => {
@@ -358,10 +408,11 @@ const renderWingetPrBadges = (labels) => {
   node.append(wrapper);
 };
 
-const loadWingetPrLabels = async () => {
+const loadWingetPrLabels = async (prNumber) => {
+  const issueApi = `https://api.github.com/repos/${wingetOwner}/${wingetRepo}/issues/${prNumber}`;
   try {
-    const issue = await fetchGitHubJson(wingetIssueApi, {
-      cacheKey: `winget-issue-${wingetPrNumber}`,
+    const issue = await fetchGitHubJson(issueApi, {
+      cacheKey: `winget-issue-${prNumber}`,
       ttlMs: cacheTtl.wingetLabels,
     });
     return Array.isArray(issue.labels) ? issue.labels : [];
@@ -369,6 +420,40 @@ const loadWingetPrLabels = async () => {
     console.error(error);
     return [];
   }
+};
+
+const pickWingetPrFromSearch = (items) => {
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length) return null;
+
+  const packageNeedle = wingetPackageId.toLowerCase();
+  const matching = list.filter((item) => String(item?.title || "").toLowerCase().includes(packageNeedle));
+  const source = matching.length ? matching : list;
+
+  const open = source.find((item) => String(item?.state || "").toLowerCase() === "open");
+  return open || source[0] || null;
+};
+
+const fetchLatestWingetPr = async () => {
+  const searchResult = await fetchGitHubJson(wingetSearchApi, {
+    cacheKey: `winget-search-${wingetPackageId.toLowerCase()}`,
+    ttlMs: cacheTtl.wingetSearch,
+  });
+
+  const selected = pickWingetPrFromSearch(searchResult?.items);
+  if (!selected?.number) return null;
+
+  const number = selected.number;
+  const pullApi = `https://api.github.com/repos/${wingetOwner}/${wingetRepo}/pulls/${number}`;
+  const [pullRequest, labels] = await Promise.all([
+    fetchGitHubJson(pullApi, {
+      cacheKey: `winget-pr-${number}`,
+      ttlMs: cacheTtl.wingetPr,
+    }),
+    loadWingetPrLabels(number),
+  ]);
+
+  return { pullRequest, labels };
 };
 
 const pickPrimaryPrLabel = (labels) => {
@@ -419,19 +504,38 @@ const resolveReviewSignal = (mergeableState, draft) => {
 
 const loadWingetStatus = async () => {
   try {
-    const [pullRequest, prLabels] = await Promise.all([
-      fetchGitHubJson(wingetPrApi, {
-        cacheKey: `winget-pr-${wingetPrNumber}`,
-        ttlMs: cacheTtl.wingetPr,
-      }),
-      loadWingetPrLabels(),
-    ]);
+    const wingetData = await fetchLatestWingetPr();
+    if (!wingetData?.pullRequest) {
+      renderWingetPrBadges([]);
+      setText("widget-pr-ref", "None");
+      setWingetUi({
+        badge: "No PR found",
+        stateClass: "winget-state-offline",
+        label: "WinGet package status",
+        command: "Status unavailable",
+        text: "No UniCreate PR found in winget-pkgs yet.",
+        link: wingetRepoPrsPage,
+        linkLabel: "Open winget PRs",
+      });
+      return;
+    }
+
+    const pullRequest = wingetData.pullRequest;
+    const prLabels = wingetData.labels || [];
     renderWingetPrBadges(prLabels);
 
     const prTitle = pullRequest.title || `${wingetPackageId} package`;
-    const prNumber = pullRequest.number || wingetPrNumber;
+    const prNumber = pullRequest.number || wingetFallbackPrNumber;
+    const prVersion = extractVersionFromPrTitle(prTitle);
+    const releaseAhead =
+      latestReleaseVersion && prVersion ? compareVersions(latestReleaseVersion, prVersion) === 1 : false;
+    const behindNote = releaseAhead
+      ? ` Latest GitHub release is v${latestReleaseVersion}, but this PR targets v${prVersion}.`
+      : "";
+
     setText("widget-pr-ref", `#${prNumber}`);
     const prLinkLabel = `Open PR #${prNumber}`;
+    const prLink = pullRequest.html_url || `https://github.com/${wingetOwner}/${wingetRepo}/pull/${prNumber}`;
 
     if (pullRequest.merged_at) {
       setWingetUi({
@@ -440,7 +544,7 @@ const loadWingetStatus = async () => {
         label: "WinGet package status",
         command: `winget install ${wingetPackageId}`,
         text: `Merged into winget-pkgs on ${formatDate(pullRequest.merged_at)}. Install directly from terminal.`,
-        link: pullRequest.html_url || wingetPrPage,
+        link: prLink,
         linkLabel: prLinkLabel,
       });
       return;
@@ -456,8 +560,8 @@ const loadWingetStatus = async () => {
         stateClass: badgeClass,
         label: "WinGet package status",
         command: "Not available yet",
-        text: `PR #${prNumber} (${prTitle}) is ${signal.summary}. Command will be winget install ${wingetPackageId} once merged into winget-pkgs.`,
-        link: pullRequest.html_url || wingetPrPage,
+        text: `PR #${prNumber} (${prTitle}) is ${signal.summary}. Command will be winget install ${wingetPackageId} once merged into winget-pkgs.${behindNote}`,
+        link: prLink,
         linkLabel: prLinkLabel,
       });
       return;
@@ -468,21 +572,21 @@ const loadWingetStatus = async () => {
       stateClass: "winget-state-closed",
       label: "WinGet package status",
       command: "Not available",
-      text: `PR #${prNumber} is closed. A merged PR is required before winget install is available.`,
-      link: pullRequest.html_url || wingetPrPage,
+      text: `PR #${prNumber} is closed. A merged PR is required before winget install is available.${behindNote}`,
+      link: prLink,
       linkLabel: prLinkLabel,
     });
   } catch (error) {
     console.error(error);
     renderWingetPrBadges([]);
-    setText("widget-pr-ref", `#${wingetPrNumber}`);
+    setText("widget-pr-ref", `#${wingetFallbackPrNumber}`);
     setWingetUi({
       badge: "Status unavailable",
       stateClass: "winget-state-offline",
       label: "WinGet package status",
       command: "Status unavailable",
       text: `Could not query winget-pkgs right now. Check PR status directly on GitHub.`,
-      link: wingetPrPage,
+      link: wingetRepoPrsPage,
       linkLabel: "Open current PR",
     });
   }
@@ -511,6 +615,49 @@ const setupBackToTop = () => {
 
   sync();
   window.addEventListener("scroll", sync, { passive: true });
+};
+
+const setupWingetCopy = () => {
+  const button = byId("winget-copy-btn");
+  if (!button) return;
+
+  const fallbackCopy = (value) => {
+    const area = document.createElement("textarea");
+    area.value = value;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    area.style.pointerEvents = "none";
+    document.body.append(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+  };
+
+  button.addEventListener("click", async () => {
+    const value = String(button.dataset.command || "").trim();
+    if (!value) return;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        fallbackCopy(value);
+      }
+
+      const previous = button.textContent;
+      button.textContent = "Copied";
+      window.setTimeout(() => {
+        button.textContent = previous || "Copy";
+      }, 1200);
+    } catch (error) {
+      console.error(error);
+      button.textContent = "Error";
+      window.setTimeout(() => {
+        button.textContent = "Copy";
+      }, 1200);
+    }
+  });
 };
 
 const setupMobileNavigation = () => {
@@ -649,9 +796,11 @@ const setupReveal = () => {
 window.addEventListener("DOMContentLoaded", () => {
   ensureManifestForHttp();
   setupReveal();
+  setupWingetCopy();
   setupMobileNavigation();
   setupStepNavigation();
   setupBackToTop();
-  loadRelease();
-  loadWingetStatus();
+  loadRelease().finally(() => {
+    loadWingetStatus();
+  });
 });
