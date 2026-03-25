@@ -214,11 +214,13 @@ export function Settings() {
         <Row label={t("settings.language")} description={t("settings.languageDesc")}>
           <select
             value={language}
-            onChange={(e) => setLanguage(e.target.value as "en" | "fr")}
+            onChange={(e) => setLanguage(e.target.value as "en" | "fr" | "zh-Hans" | "zh-Hant")}
             className="h-7 rounded-md border border-border bg-background/50 px-2 text-[11px] font-medium focus:border-primary/50 focus:outline-none"
           >
             <option value="en">English</option>
             <option value="fr">Français</option>
+            <option value="zh-Hans">简体中文</option>
+            <option value="zh-Hant">繁體中文</option>
           </select>
         </Row>
         <Row label={t("settings.defaultLocale")} description={t("settings.defaultLocaleDesc")}>

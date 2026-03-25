@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type AppLanguage = "en" | "fr";
+export type AppLanguage = "en" | "fr" | "zh-Hans" | "zh-Hant";
 
 export type EphemeralTimeout = 5 | 10 | 15 | 30;
 
