@@ -33,6 +33,11 @@ export interface InstallerSwitches {
   repair?: string;
 }
 
+export interface NestedInstallerFile {
+  relativeFilePath: string;
+  portableCommandAlias?: string;
+}
+
 export interface InstallerEntry {
   architecture: Architecture;
   installerType: InstallerType;
@@ -46,6 +51,8 @@ export interface InstallerEntry {
   productCode?: string;
   upgradeBehavior?: UpgradeBehavior;
   elevationRequirement?: ElevationRequirement;
+  nestedInstallerType?: InstallerType;
+  nestedInstallerFiles?: NestedInstallerFile[];
 }
 
 export interface InstallerDefaults {

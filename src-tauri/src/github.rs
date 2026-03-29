@@ -795,18 +795,39 @@ pub async fn fetch_existing_manifest(package_id: &str, token: Option<&str>) -> R
     let first_letter = segments[0].chars().next().unwrap_or('_').to_lowercase().to_string();
     let package_path = segments.join("/");
 
-    let dir_url = format!(
+    let initial_dir_url = format!(
         "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/{}/{}",
         first_letter, package_path
     );
 
-    // List versions
+    // List versions — with case-insensitive fallback on 404
     let resp = client
-        .get(&dir_url)
+        .get(&initial_dir_url)
         .headers(headers.clone())
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
+
+    let status = resp.status();
+    let (resp, dir_url) = if status == reqwest::StatusCode::NOT_FOUND {
+        // Try to resolve with correct casing
+        let resolved_path = resolve_path_case_insensitive(&client, &headers, &first_letter, &segments)
+            .await
+            .ok_or_else(|| format!("Package '{}' not found in winget-pkgs", package_id))?;
+        let resolved_url = format!(
+            "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/{}/{}",
+            first_letter, resolved_path
+        );
+        let resolved_resp = client
+            .get(&resolved_url)
+            .headers(headers.clone())
+            .send()
+            .await
+            .map_err(|e| format!("Request failed: {}", e))?;
+        (resolved_resp, resolved_url)
+    } else {
+        (resp, initial_dir_url)
+    };
 
     let status = resp.status();
     if status == reqwest::StatusCode::NOT_FOUND {
@@ -1062,6 +1083,39 @@ pub async fn fetch_existing_yaml_files(
     Ok(result)
 }
 
+/// Resolve a package path case-insensitively by listing directories level by level.
+/// Returns the correctly-cased path (e.g. "Mihomo-Party/Mihomo-Party") or None if not found.
+async fn resolve_path_case_insensitive(
+    client: &reqwest::Client,
+    headers: &reqwest::header::HeaderMap,
+    first_letter: &str,
+    segments: &[&str],
+) -> Option<String> {
+    let base = "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests";
+    let mut current_url = format!("{}/{}", base, first_letter);
+    let mut resolved: Vec<String> = Vec::new();
+
+    for segment in segments {
+        let resp = client
+            .get(&current_url)
+            .headers(headers.clone())
+            .send()
+            .await
+            .ok()?;
+        if !resp.status().is_success() {
+            return None;
+        }
+        let items: Vec<GitHubContentItem> = resp.json().await.ok()?;
+        let matched = items.iter().find(|item| {
+            item.item_type == "dir" && item.name.eq_ignore_ascii_case(segment)
+        })?;
+        resolved.push(matched.name.clone());
+        current_url = format!("{}/{}", current_url, matched.name);
+    }
+
+    Some(resolved.join("/"))
+}
+
 pub async fn check_package_exists(package_id: &str, token: Option<&str>) -> Result<bool, String> {
     validate_package_id(package_id)?;
     let client = http_client();
@@ -1083,7 +1137,7 @@ pub async fn check_package_exists(package_id: &str, token: Option<&str>) -> Resu
 
     let resp = client
         .get(&url)
-        .headers(headers)
+        .headers(headers.clone())
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
@@ -1092,8 +1146,16 @@ pub async fn check_package_exists(package_id: &str, token: Option<&str>) -> Resu
     if status == reqwest::StatusCode::FORBIDDEN || status == reqwest::StatusCode::TOO_MANY_REQUESTS {
         return Err("GitHub API rate limit exceeded. Please sign in with GitHub to increase the limit.".to_string());
     }
+    if status.is_success() {
+        return Ok(true);
+    }
+    if status == reqwest::StatusCode::NOT_FOUND {
+        // Retry with case-insensitive path resolution
+        let resolved = resolve_path_case_insensitive(&client, &headers, &first_letter, &segments).await;
+        return Ok(resolved.is_some());
+    }
 
-    Ok(status.is_success())
+    Ok(false)
 }
 
 fn parse_github_pr_url(pr_url: &str) -> Option<(String, String, u64)> {

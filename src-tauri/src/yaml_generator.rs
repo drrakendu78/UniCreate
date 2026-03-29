@@ -29,6 +29,13 @@ pub struct InstallerDefaults {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct NestedInstallerFile {
+    pub relative_file_path: String,
+    pub portable_command_alias: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct InstallerEntry {
     pub architecture: String,
     pub installer_type: String,
@@ -42,6 +49,8 @@ pub struct InstallerEntry {
     pub product_code: Option<String>,
     pub upgrade_behavior: Option<String>,
     pub elevation_requirement: Option<String>,
+    pub nested_installer_type: Option<String>,
+    pub nested_installer_files: Option<Vec<NestedInstallerFile>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -349,6 +358,25 @@ fn generate_installer_yaml(m: &ManifestData) -> YamlFile {
             format_yaml_scalar(&inst.installer_url)
         ));
         content.push_str(&format!("  InstallerSha256: {}\n", inst.installer_sha256));
+
+        if let Some(ref nit) = inst.nested_installer_type {
+            if !nit.is_empty() {
+                content.push_str(&format!("  NestedInstallerType: {}\n", format_yaml_scalar(nit)));
+            }
+        }
+        if let Some(ref nif_list) = inst.nested_installer_files {
+            if !nif_list.is_empty() {
+                content.push_str("  NestedInstallerFiles:\n");
+                for nif in nif_list {
+                    content.push_str(&format!("  - RelativeFilePath: {}\n", format_yaml_scalar(&nif.relative_file_path)));
+                    if let Some(ref alias) = nif.portable_command_alias {
+                        if !alias.is_empty() {
+                            content.push_str(&format!("    PortableCommandAlias: {}\n", format_yaml_scalar(alias)));
+                        }
+                    }
+                }
+            }
+        }
 
         if let Some(ref scope) = inst.scope {
             if !scope.is_empty() && Some(scope) != default_scope {

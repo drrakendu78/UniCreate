@@ -80,6 +80,9 @@ export function StepInstaller() {
   const [url, setUrl] = useState("");
   const [arch, setArch] = useState<Architecture>("x64");
   const [installerType, setInstallerType] = useState<InstallerType>("exe");
+  const [nestedInstallerType, setNestedInstallerType] = useState<InstallerType>("exe");
+  const [nestedRelativeFilePath, setNestedRelativeFilePath] = useState("");
+  const [nestedPortableAlias, setNestedPortableAlias] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [autoFilled, setAutoFilled] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -141,6 +144,11 @@ export function StepInstaller() {
         architecture: finalArch, installerType: finalType,
         installerUrl: trimmed, installerSha256: result.sha256,
         signatureSha256: result.signatureSha256 || undefined,
+        nestedInstallerType: finalType === "zip" && nestedRelativeFilePath ? nestedInstallerType : undefined,
+        nestedInstallerFiles: finalType === "zip" && nestedRelativeFilePath ? [{
+          relativeFilePath: nestedRelativeFilePath,
+          portableCommandAlias: nestedInstallerType === "portable" && nestedPortableAlias ? nestedPortableAlias : undefined,
+        }] : undefined,
       };
       const template = isUpdate ? pickInstallerTemplate(updateInstallerTemplates, finalArch, finalType) : null;
       addInstaller(mergeTemplateFields(baseEntry, template));
@@ -159,6 +167,8 @@ export function StepInstaller() {
       }
       addToast("Installer added successfully", "success");
       setUrl("");
+      setNestedRelativeFilePath("");
+      setNestedPortableAlias("");
     } catch (e) { setError(String(e)); }
     finally { setIsAnalyzing(false); }
   };
@@ -171,6 +181,11 @@ export function StepInstaller() {
       architecture: arch, installerType: finalType,
       installerUrl: trimmed, installerSha256: localHash.sha256,
       signatureSha256: localHash.signatureSha256 || undefined,
+      nestedInstallerType: finalType === "zip" && nestedRelativeFilePath ? nestedInstallerType : undefined,
+      nestedInstallerFiles: finalType === "zip" && nestedRelativeFilePath ? [{
+        relativeFilePath: nestedRelativeFilePath,
+        portableCommandAlias: nestedInstallerType === "portable" && nestedPortableAlias ? nestedPortableAlias : undefined,
+      }] : undefined,
     };
     const template = isUpdate ? pickInstallerTemplate(updateInstallerTemplates, arch, finalType) : null;
     addInstaller(mergeTemplateFields(baseEntry, template));
@@ -193,6 +208,8 @@ export function StepInstaller() {
     }
 
     setLocalHash(null); setUrl("");
+    setNestedRelativeFilePath("");
+    setNestedPortableAlias("");
     addToast("Installer added from local file", "success");
   };
 
@@ -318,6 +335,34 @@ export function StepInstaller() {
                 </select>
               </div>
             </div>
+
+            {installerType === "zip" && (
+              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3 animate-fade-in">
+                <span className="text-[12px] font-semibold text-muted-foreground">{t("installer.nestedInstaller")}</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-medium text-foreground">{t("installer.nestedType")}</label>
+                    <select value={nestedInstallerType} onChange={(e) => setNestedInstallerType(e.target.value as InstallerType)} className="h-9 w-full rounded-lg border border-border bg-background/50 px-3 text-[13px] focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all">
+                      {installerTypes.filter((it) => it !== "zip").map((it) => <option key={it} value={it}>{it}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-medium text-foreground">{t("installer.relativeFilePath")}</label>
+                    <input type="text" value={nestedRelativeFilePath} onChange={(e) => setNestedRelativeFilePath(e.target.value)}
+                      placeholder={t("installer.relativeFilePathPlaceholder")}
+                      className="h-9 w-full rounded-lg border border-border bg-background/50 px-3 text-[13px] placeholder:text-muted-foreground/40 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all" />
+                  </div>
+                </div>
+                {nestedInstallerType === "portable" && (
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-medium text-foreground">{t("installer.portableCommandAlias")}</label>
+                    <input type="text" value={nestedPortableAlias} onChange={(e) => setNestedPortableAlias(e.target.value)}
+                      placeholder="e.g. myapp"
+                      className="h-9 w-full rounded-lg border border-border bg-background/50 px-3 text-[13px] placeholder:text-muted-foreground/40 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all" />
+                  </div>
+                )}
+              </div>
+            )}
 
             {localHash && (
               <div className="rounded-lg border border-emerald-500/15 bg-emerald-500/5 p-3 space-y-2 animate-fade-in">

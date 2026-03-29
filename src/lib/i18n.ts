@@ -74,7 +74,7 @@ const translations = {
   "installer.dropHere": { en: "Drop file to compute hash", fr: "Déposez le fichier pour calculer le hash", "zh-Hans": "放置文件以计算哈希", "zh-Hant": "放置檔案以計算雜湊" },
   "installer.addWithLocalHash": { en: "Add with local hash", fr: "Ajouter avec le hash local", "zh-Hans": "添加本地哈希", "zh-Hant": "新增本機雜湊" },
   "installer.localFile": { en: "Local file", fr: "Fichier local", "zh-Hans": "本地文件", "zh-Hant": "本機檔案" },
-  "installer.enterUrlThenAdd": { en: "Enter the download URL above, then click \"Add\"", fr: "Entrez l'URL de téléchargement ci-dessus, puis cliquez sur \"Ajouter\"", "zh-Hans": "在上方输入下载 URL，然后单击"添加"", "zh-Hant": "在上方輸入下載 URL，然後按一下"新增"" },
+  "installer.enterUrlThenAdd": { en: "Enter the download URL above, then click \"Add\"", fr: "Entrez l'URL de téléchargement ci-dessus, puis cliquez sur \"Ajouter\"", "zh-Hans": "在上方输入下载 URL，然后单击\"添加\"", "zh-Hant": "在上方輸入下載 URL，然後按一下\"新增\"" },
   "installer.yourRepos": { en: "Your repositories", fr: "Vos dépôts", "zh-Hans": "您的仓库", "zh-Hant": "您的存放庫" },
   "installer.loadingRepos": { en: "Loading repositories...", fr: "Chargement des dépôts...", "zh-Hans": "正在加载仓库...", "zh-Hant": "正在載入存放庫..." },
   "installer.noReleases": { en: "No releases with installers found.", fr: "Aucune release avec des installeurs trouvée.", "zh-Hans": "未找到具有安装程序的发布版本。", "zh-Hant": "找不到具有安裝程式的版本。" },
@@ -93,6 +93,11 @@ const translations = {
   },
   "installer.back": { en: "Back", fr: "Retour", "zh-Hans": "返回", "zh-Hant": "返回" },
   "installer.continue": { en: "Continue", fr: "Continuer", "zh-Hans": "继续", "zh-Hant": "繼續" },
+  "installer.nestedInstaller": { en: "Nested Installer (inside ZIP)", fr: "Installeur imbriqué (dans le ZIP)", "zh-Hans": "嵌套安装程序（ZIP 内）", "zh-Hant": "巢狀安裝程式（ZIP 內）" },
+  "installer.nestedType": { en: "Nested Type", fr: "Type imbriqué", "zh-Hans": "嵌套类型", "zh-Hant": "巢狀類型" },
+  "installer.relativeFilePath": { en: "Relative File Path", fr: "Chemin relatif du fichier", "zh-Hans": "相对文件路径", "zh-Hant": "相對檔案路徑" },
+  "installer.relativeFilePathPlaceholder": { en: "e.g. app.exe or subfolder/app.exe", fr: "ex. app.exe ou sousdossier/app.exe", "zh-Hans": "例如 app.exe 或 subfolder/app.exe", "zh-Hant": "例如 app.exe 或 subfolder/app.exe" },
+  "installer.portableCommandAlias": { en: "Command Alias (optional)", fr: "Alias de commande (optionnel)", "zh-Hans": "命令别名（可选）", "zh-Hant": "命令別名（可選）" },
 
   // ── Step Metadata ──
   "metadata.step": { en: "Step 2 of 4", fr: "Étape 2 sur 4", "zh-Hans": "步骤 2（共 4 步）", "zh-Hant": "步驟 2（共 4 步）" },

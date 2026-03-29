@@ -276,12 +276,11 @@ async fn download_installer(
     let temp_dir = std::env::temp_dir().join("unicreate-updater");
     std::fs::create_dir_all(&temp_dir)
         .map_err(|e| format!("Cannot create temp dir: {}", e))?;
-    let dest = temp_dir.join(&file_name);
 
-    // Verify dest stays within temp_dir
+    // Canonicalize dir first, then build dest from it to avoid \\?\ prefix mismatch on Windows
     let canonical_dir = temp_dir.canonicalize().map_err(|e| format!("Path error: {}", e))?;
-    let canonical_dest = dest.canonicalize().unwrap_or_else(|_| dest.clone());
-    if !canonical_dest.starts_with(&canonical_dir) {
+    let dest = canonical_dir.join(&file_name);
+    if !dest.starts_with(&canonical_dir) {
         return Err("Path traversal detected".to_string());
     }
 

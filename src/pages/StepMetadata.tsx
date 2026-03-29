@@ -102,7 +102,7 @@ export function StepMetadata() {
 
   const [idStatus, setIdStatus] = useState<"idle" | "checking" | "exists" | "available" | "invalid">("idle");
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-  const idFormatValid = /^[A-Za-z0-9]+\.[A-Za-z0-9.]+$/.test(manifest.packageIdentifier);
+  const idFormatValid = /^[A-Za-z0-9][A-Za-z0-9._-]*\.[A-Za-z0-9._-]+$/.test(manifest.packageIdentifier);
 
   useEffect(() => {
     const id = manifest.packageIdentifier;
