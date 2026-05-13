@@ -283,7 +283,16 @@ pub fn start_silent_update(download_url: &str, file_name: Option<&str>) -> Resul
             "--pid", &current_pid.to_string(),
         ])
         .spawn()
-        .map_err(|e| format!("Cannot start updater: {}", e))?;
+        .map_err(|e| {
+            // ERROR_ELEVATION_REQUIRED (740): Windows installer-detection heuristic
+            // auto-elevates any .exe whose name contains "updater" / "setup" / "install".
+            // Running the updater from a non-admin process fails with this code.
+            if e.raw_os_error() == Some(740) {
+                "Update requires administrator privileges. Please restart UniCreate as administrator and try again.".to_string()
+            } else {
+                format!("Cannot start updater: {}", e)
+            }
+        })?;
 
     Ok(())
 }

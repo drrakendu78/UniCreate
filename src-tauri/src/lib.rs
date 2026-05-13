@@ -132,6 +132,64 @@ fn start_silent_update(download_url: String, file_name: Option<String>) -> Resul
 }
 
 #[tauri::command]
+fn is_running_as_admin() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        is_elevated::is_elevated()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
+    }
+}
+
+#[tauri::command]
+async fn restart_as_admin(app_handle: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        use std::process::Command;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        let exe_str = exe
+            .to_str()
+            .ok_or_else(|| "Invalid executable path".to_string())?;
+
+        if exe_str.contains("WindowsApps") {
+            return Err("Microsoft Store apps cannot be elevated to administrator.".to_string());
+        }
+
+        let escaped = exe_str.replace("'", "''");
+        let ps_command = format!("Start-Process -FilePath '{}' -Verb RunAs", escaped);
+        let powershell_path = std::path::Path::new("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe");
+        let ps = if powershell_path.exists() {
+            powershell_path.to_str().unwrap()
+        } else {
+            "powershell.exe"
+        };
+
+        match Command::new(ps)
+            .creation_flags(CREATE_NO_WINDOW)
+            .args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &ps_command])
+            .spawn()
+        {
+            Ok(_) => {
+                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                app_handle.exit(0);
+                Ok(())
+            }
+            Err(e) => Err(format!("Failed to restart as administrator: {}. Try running the app as admin manually.", e)),
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app_handle;
+        Err("Elevation not supported on this platform.".to_string())
+    }
+}
+
+#[tauri::command]
 async fn start_device_flow() -> Result<github::DeviceFlowStart, String> {
     github::start_device_flow().await
 }
@@ -301,6 +359,8 @@ pub fn run() {
             check_package_exists,
             check_app_update,
             start_silent_update,
+            is_running_as_admin,
+            restart_as_admin,
             start_device_flow,
             poll_device_flow,
             authenticate_github,

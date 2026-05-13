@@ -21,6 +21,7 @@ import logoMarkUrl from "@/assets/logo-mark.png";
 
 const appWindow = getCurrentWindow();
 const DISMISSED_UPDATE_VERSION_KEY = "unicreate-dismissed-update-version";
+const PENDING_UPDATE_KEY = "unicreate-pending-update";
 
 function Toasts() {
   const { toasts, removeToast } = useToastStore();
@@ -294,6 +295,43 @@ function App() {
     };
   }, [autoCheckUpdates]);
 
+  // Resume a pending update after the user restarted the app as admin.
+  // PENDING_UPDATE_KEY is set just before calling restart_as_admin in openUpdateAction.
+  // Once we're back with elevated privileges, we kick off start_silent_update directly.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let pending: { downloadUrl: string; downloadName?: string; latestVersion?: string } | null = null;
+      try {
+        const raw = localStorage.getItem(PENDING_UPDATE_KEY);
+        if (raw) pending = JSON.parse(raw);
+      } catch { pending = null; }
+      if (!pending?.downloadUrl) return;
+
+      const isAdmin = await invoke<boolean>("is_running_as_admin").catch(() => false);
+      if (cancelled) return;
+
+      // Always clear the flag once: avoids an infinite restart loop if anything fails.
+      try { localStorage.removeItem(PENDING_UPDATE_KEY); } catch {}
+
+      if (!isAdmin) return; // elevation refused or failed: give up silently
+
+      try {
+        await invoke("start_silent_update", {
+          downloadUrl: pending.downloadUrl,
+          fileName: pending.downloadName,
+        });
+        if (pending.latestVersion) {
+          localStorage.setItem(DISMISSED_UPDATE_VERSION_KEY, pending.latestVersion);
+        }
+        await appWindow.close().catch(() => {});
+      } catch (e) {
+        addToast(`Update failed: ${String(e)}`, "error");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [addToast]);
+
   const dismissUpdatePopup = () => {
     if (appUpdateInfo) {
       localStorage.setItem(DISMISSED_UPDATE_VERSION_KEY, appUpdateInfo.latestVersion);
@@ -309,6 +347,32 @@ function App() {
     }
 
     setIsApplyingUpdate(true);
+
+    // Windows installer-detection heuristic forces UAC elevation for any .exe whose
+    // name contains "updater" / "setup". Launching the updater from a non-admin
+    // process fails with ERROR_ELEVATION_REQUIRED (740). To avoid this, we restart
+    // the app as admin first, persist the update info, and resume the install on
+    // next boot (see the useEffect that reads PENDING_UPDATE_KEY).
+    const isAdmin = await invoke<boolean>("is_running_as_admin").catch(() => true);
+    if (!isAdmin) {
+      try {
+        localStorage.setItem(PENDING_UPDATE_KEY, JSON.stringify({
+          downloadUrl: appUpdateInfo.downloadUrl,
+          downloadName: appUpdateInfo.downloadName,
+          latestVersion: appUpdateInfo.latestVersion,
+        }));
+      } catch {}
+      addToast("Restarting as administrator to install the update...", "info");
+      try {
+        await invoke("restart_as_admin");
+        // App closes after this call.
+      } catch (e) {
+        try { localStorage.removeItem(PENDING_UPDATE_KEY); } catch {}
+        setIsApplyingUpdate(false);
+        addToast(`Failed to restart as administrator: ${String(e)}`, "error");
+      }
+      return;
+    }
 
     try {
       await invoke("start_silent_update", {
