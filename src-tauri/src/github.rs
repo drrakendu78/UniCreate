@@ -163,6 +163,7 @@ pub struct RepoMetadata {
     pub version: Option<String>,
     pub release_notes: Option<String>,
     pub release_url: Option<String>,
+    pub release_date: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -483,7 +484,7 @@ pub async fn fetch_repo_metadata(url: &str, token: Option<&str>) -> Result<RepoM
     }
 
     // Fetch release info if we have a tag
-    let (version, release_notes, release_url) = if let Some(ref tag_name) = tag {
+    let (version, release_notes, release_url, release_date) = if let Some(ref tag_name) = tag {
         let release_result: Result<GitHubRelease, _> = client
             .get(&format!(
                 "https://api.github.com/repos/{}/{}/releases/tags/{}",
@@ -501,8 +502,9 @@ pub async fn fetch_repo_metadata(url: &str, token: Option<&str>) -> Result<RepoM
                 Some(clean_version(&release.tag_name)),
                 release.body,
                 Some(release.html_url),
+                release.published_at.and_then(extract_iso_date),
             ),
-            Err(_) => (Some(clean_version(tag_name)), None, None),
+            Err(_) => (Some(clean_version(tag_name)), None, None, None),
         }
     } else {
         // No tag, try latest release
@@ -523,8 +525,9 @@ pub async fn fetch_repo_metadata(url: &str, token: Option<&str>) -> Result<RepoM
                 Some(clean_version(&release.tag_name)),
                 release.body,
                 Some(release.html_url),
+                release.published_at.and_then(extract_iso_date),
             ),
-            Err(_) => (None, None, None),
+            Err(_) => (None, None, None, None),
         }
     };
 
@@ -539,7 +542,19 @@ pub async fn fetch_repo_metadata(url: &str, token: Option<&str>) -> Result<RepoM
         version,
         release_notes,
         release_url,
+        release_date,
     })
+}
+
+/// Extrait la partie date (YYYY-MM-DD) d'un timestamp ISO 8601 retourné par
+/// l'API GitHub (ex: "2026-05-13T19:08:05Z" → "2026-05-13").
+fn extract_iso_date(iso: String) -> Option<String> {
+    let head = iso.split('T').next()?;
+    if head.len() == 10 && head.chars().filter(|c| c.is_ascii_digit()).count() == 8 {
+        Some(head.to_string())
+    } else {
+        None
+    }
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -666,6 +681,7 @@ struct YamlLocaleManifest {
     tags: Option<Vec<String>>,
     release_notes: Option<String>,
     release_notes_url: Option<String>,
+    release_date: Option<String>,
 }
 
 fn normalize_optional(value: Option<String>) -> Option<String> {
@@ -750,6 +766,7 @@ fn parse_locale_manifest(yaml: &str) -> Result<LocaleData, String> {
         tags: normalize_vec(parsed.tags),
         release_notes: normalize_optional(parsed.release_notes),
         release_notes_url: normalize_optional(parsed.release_notes_url),
+        release_date: normalize_optional(parsed.release_date),
     })
 }
 

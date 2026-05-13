@@ -5,7 +5,7 @@ import { useToastStore } from "@/stores/toast-store";
 import { useUserRepos } from "@/hooks/use-user-repos";
 import type {
   Architecture, InstallerType, InstallerEntry,
-  InstallerTemplateEntry, RepoMetadata, HashResult,
+  InstallerTemplateEntry, RepoMetadata, HashResult, RepoReleaseInfo,
 } from "@/lib/types";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -90,6 +90,51 @@ export function StepInstaller() {
 
   const userRepos = useUserRepos(activeSessionToken, !isUpdate);
   const hashingRef = useRef(false);
+
+  // En mode update : suggérer les 3 dernières releases GitHub du package en cours.
+  // On extrait owner/repo depuis les URLs présentes dans le manifest existant.
+  const [updateReleases, setUpdateReleases] = useState<RepoReleaseInfo[]>([]);
+  const [loadingUpdateReleases, setLoadingUpdateReleases] = useState(false);
+
+  useEffect(() => {
+    if (!isUpdate) {
+      setUpdateReleases([]);
+      return;
+    }
+    // On scanne tous les champs URL du locale pour trouver un repo github.com/owner/repo.
+    // licenseUrl + releaseNotesUrl sont les plus fiables (pointent typiquement vers le repo).
+    const candidates = [
+      manifest.locale?.licenseUrl,
+      manifest.locale?.releaseNotesUrl,
+      manifest.locale?.packageUrl,
+      manifest.locale?.publisherUrl,
+      manifest.locale?.publisherSupportUrl,
+      manifest.locale?.privacyUrl,
+      manifest.locale?.copyrightUrl,
+    ].filter((u): u is string => Boolean(u));
+    let owner: string | null = null;
+    let repo: string | null = null;
+    for (const u of candidates) {
+      const m = u.match(/github\.com\/([^\/\s?#]+)\/([^\/\s?#]+)/i);
+      if (m && m[2] && !m[2].toLowerCase().startsWith("releases") && !m[2].toLowerCase().startsWith("blob")) {
+        owner = m[1];
+        repo = m[2].replace(/\.git$/i, "");
+        break;
+      }
+    }
+    if (!owner || !repo) {
+      setUpdateReleases([]);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingUpdateReleases(true);
+    invoke<RepoReleaseInfo[]>("fetch_repo_releases", { owner, repo, count: 3 })
+      .then((r) => { if (!cancelled) setUpdateReleases(r); })
+      .catch(() => { if (!cancelled) setUpdateReleases([]); })
+      .finally(() => { if (!cancelled) setLoadingUpdateReleases(false); });
+    return () => { cancelled = true; };
+  }, [isUpdate, manifest.locale?.packageUrl, manifest.locale?.releaseNotesUrl, manifest.locale?.publisherUrl]);
   const t = useT();
 
   const handleLocalFile = useCallback(async (filePath: string) => {
@@ -160,6 +205,7 @@ export function StepInstaller() {
           if (meta.version) setPackageVersion(meta.version);
           if (meta.releaseNotes) setLocale({ releaseNotes: meta.releaseNotes });
           if (meta.releaseUrl) setLocale({ releaseNotesUrl: meta.releaseUrl });
+          if (meta.releaseDate) setLocale({ releaseDate: meta.releaseDate });
         } else {
           applyRepoMetadata(meta);
           setAutoFilled(true);
@@ -231,6 +277,51 @@ export function StepInstaller() {
             : t("installer.desc")}
         </p>
       </div>
+
+      {/* Update mode : suggérer les 3 dernières releases GitHub du package */}
+      {isUpdate && (loadingUpdateReleases || updateReleases.length > 0) && (
+        <div className="space-y-2">
+          <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+            <Github className="h-3 w-3" />Releases récentes
+          </span>
+          {loadingUpdateReleases ? (
+            <div className="flex items-center gap-2 py-2 text-[11px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />Chargement des releases...
+            </div>
+          ) : (
+            <div className="space-y-1.5 rounded-lg border border-border/50 bg-card/30 p-2.5">
+              {updateReleases.map((release) => (
+                <div key={release.tag} className="space-y-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground">{release.tag}</span>
+                  <div className="flex flex-wrap gap-1">
+                    {release.assets.length === 0 ? (
+                      <span className="text-[10px] text-muted-foreground/60">Aucun asset</span>
+                    ) : release.assets.map((asset) => (
+                      <button
+                        key={asset.downloadUrl}
+                        onClick={() => {
+                          setUrl(asset.downloadUrl);
+                          const detType = detectTypeFromName(asset.name);
+                          const detArch = detectArchFromName(asset.name);
+                          if (detType) setInstallerType(detType);
+                          if (detArch) setArch(detArch);
+                        }}
+                        disabled={isAnalyzing}
+                        className={cn(
+                          "rounded-md border px-2 py-0.5 text-[10px] font-medium transition-all",
+                          url === asset.downloadUrl ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-background/50 text-muted-foreground hover:border-primary/30 hover:text-foreground",
+                          "disabled:opacity-40 disabled:cursor-not-allowed"
+                        )}
+                        title={asset.downloadUrl}
+                      >{asset.name}</button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* User repos quick-select */}
       {!isUpdate && (userRepos.loading || userRepos.repos.length > 0) && (

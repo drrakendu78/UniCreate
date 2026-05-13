@@ -203,6 +203,7 @@ export function StepMetadata() {
             </div>
             <Field label={t("metadata.releaseNotes")} value={locale.releaseNotes || ""} onChange={(v) => setLocale({ releaseNotes: v })} placeholder="What's new..." multiline />
             <Field label={t("metadata.releaseNotesUrl")} value={locale.releaseNotesUrl || ""} onChange={(v) => setLocale({ releaseNotesUrl: v })} placeholder="https://..." />
+            <Field label="Release Date" value={locale.releaseDate || ""} onChange={(v) => setLocale({ releaseDate: v })} placeholder="YYYY-MM-DD (auto from GitHub release)" />
             <TagsInput value={locale.tags || []} onChange={(tags) => setLocale({ tags })} />
           </div>
         )}

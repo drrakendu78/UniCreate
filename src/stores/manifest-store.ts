@@ -177,6 +177,7 @@ export const useManifestStore = create<ManifestStore>()(persist((set) => ({
             tags: loc.tags?.length ? loc.tags : meta.topics.length ? meta.topics : undefined,
             releaseNotes: loc.releaseNotes || meta.releaseNotes || undefined,
             releaseNotesUrl: loc.releaseNotesUrl || meta.releaseUrl || undefined,
+            releaseDate: loc.releaseDate || meta.releaseDate || undefined,
           },
         },
       };

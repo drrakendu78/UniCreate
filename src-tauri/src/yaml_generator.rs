@@ -87,6 +87,7 @@ pub struct LocaleData {
     pub tags: Option<Vec<String>>,
     pub release_notes: Option<String>,
     pub release_notes_url: Option<String>,
+    pub release_date: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -523,6 +524,7 @@ fn generate_locale_yaml(m: &ManifestData) -> YamlFile {
     content.push_str(&opt_field("PrivacyUrl", &l.privacy_url));
     content.push_str(&opt_field("Author", &l.author));
     content.push_str(&format_yaml_field("PackageName", &l.package_name));
+    content.push_str(&opt_field("ReleaseDate", &l.release_date));
     content.push_str(&opt_field("PackageUrl", &l.package_url));
     content.push_str(&format_yaml_field("License", &l.license));
     content.push_str(&opt_field("LicenseUrl", &l.license_url));
@@ -567,6 +569,7 @@ fn generate_additional_locale_yaml(m: &ManifestData, l: &LocaleData) -> YamlFile
     content.push_str(&opt_field("PrivacyUrl", &l.privacy_url));
     content.push_str(&opt_field("Author", &l.author));
     content.push_str(&format_yaml_field("PackageName", &l.package_name));
+    content.push_str(&opt_field("ReleaseDate", &l.release_date));
     content.push_str(&opt_field("PackageUrl", &l.package_url));
     content.push_str(&format_yaml_field("License", &l.license));
     content.push_str(&opt_field("LicenseUrl", &l.license_url));

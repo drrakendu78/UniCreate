@@ -96,6 +96,7 @@ export interface LocaleData {
   tags?: string[];
   releaseNotes?: string;
   releaseNotesUrl?: string;
+  releaseDate?: string;
 }
 
 export interface ManifestData {
@@ -162,6 +163,7 @@ export interface RepoMetadata {
   version: string | null;
   releaseNotes: string | null;
   releaseUrl: string | null;
+  releaseDate: string | null;
 }
 
 export interface ExistingManifest {
